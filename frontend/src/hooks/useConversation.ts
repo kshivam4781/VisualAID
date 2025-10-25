@@ -478,7 +478,7 @@ export function useConversation({ socket, onVisionActivated, onVisionDeactivated
 
   // Listen for frame audio (TTS for frame descriptions)
   useEffect(() => {
-    if (!socket || !state.sessionId || !state.visionModeActive) return;
+    if (!socket || !state.visionModeActive) return;
 
     const handleFrameAudio = (data: any) => {
       console.log('📥 [Conversation] Received frame:audio event:', { 
@@ -487,8 +487,8 @@ export function useConversation({ socket, onVisionActivated, onVisionDeactivated
         audioLength: data.audio?.length 
       });
       
-      if (data.sessionId === state.sessionId && data.audio) {
-        // Play frame audio through the conversation system
+      // Play any frame audio when vision mode is active (don't check sessionId match)
+      if (data.audio) {
         console.log('🔊 Playing frame audio through conversation system...');
         playAudio(data.audio, false); // Not a greeting
       }
@@ -499,7 +499,7 @@ export function useConversation({ socket, onVisionActivated, onVisionDeactivated
     return () => {
       socket.off('frame:audio', handleFrameAudio);
     };
-  }, [socket, state.sessionId, state.visionModeActive, playAudio]);
+  }, [socket, state.visionModeActive]);
 
   // Listen for conversation events
   useEffect(() => {
@@ -890,6 +890,11 @@ export function useConversation({ socket, onVisionActivated, onVisionDeactivated
     setState(prev => ({ ...prev, error: null }));
   }, []);
 
+  // Set vision mode active (for manual activation from button)
+  const setVisionModeActive = useCallback((active: boolean) => {
+    setState(prev => ({ ...prev, visionModeActive: active }));
+  }, []);
+
   return {
     state,
     startConversation,
@@ -897,7 +902,8 @@ export function useConversation({ socket, onVisionActivated, onVisionDeactivated
     stopListening,
     sendMessage,
     endConversation,
-    clearError
+    clearError,
+    setVisionModeActive
   };
 }
 

@@ -356,6 +356,11 @@ export const HomePage: React.FC = () => {
       console.log('🤖 Starting conversation with Nova...');
       conversation.startConversation();
       
+      // Manually set visionModeActive to true for button click
+      // This enables the frame:audio listener even before the backend responds
+      console.log('👁️ Manually activating vision mode for button click');
+      conversation.setVisionModeActive(true);
+      
       // Wait a bit for the conversation to initialize, then activate vision
       setTimeout(() => {
         console.log('📷 Activating vision mode after conversation started...');
@@ -363,6 +368,7 @@ export const HomePage: React.FC = () => {
       }, 1000);
     } else {
       // Conversation already started, activate vision immediately
+      conversation.setVisionModeActive(true);
       triggerVisionActivation();
     }
   };
