@@ -920,6 +920,31 @@ export const VoiceInterface: React.FC = () => {
         </div>
       )}
 
+      {/* Be My Eye Button */}
+      <div className="be-my-eye-button-container">
+        <button 
+          className={`be-my-eye-button ${voiceState.isActive ? 'active' : 'inactive'}`}
+          onClick={() => {
+            if (voiceState.isActive) {
+              // If already active, stop vision mode
+              handleVoiceCommand('stop be my eye');
+            } else {
+              // If not active, start vision mode
+              handleVoiceCommand('be my eye');
+            }
+          }}
+          disabled={!isSupported || voiceState.isListening}
+        >
+          {voiceState.isActive ? '👁️ Stop Be My Eye' : '👁️ Be My Eye'}
+        </button>
+        <p className="button-description">
+          {voiceState.isActive 
+            ? 'Click to stop vision assistance' 
+            : 'Click to start vision assistance'
+          }
+        </p>
+      </div>
+
       <div className="instructions">
         <h3>Quick Reference:</h3>
         <ul>
