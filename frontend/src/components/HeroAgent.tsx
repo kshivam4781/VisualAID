@@ -87,7 +87,7 @@ export const HeroAgent: React.FC<HeroAgentProps> = ({
           </div>
         </div>
 
-        {/* Voice Status Indicator or Click Hint */}
+        {/* Voice Status Indicator or Be My Eye Button */}
         {isListening ? (
           <div className="voice-status-indicator">
             <div className="pulse-ring"></div>
@@ -99,11 +99,19 @@ export const HeroAgent: React.FC<HeroAgentProps> = ({
             )}
           </div>
         ) : (
-          <div className="click-hint">
-            <span className="hint-text">💬 Click anywhere to speak</span>
-            <div className="available-commands">
-              <p>Try saying: "be my eye" | "help" | "tutorial"</p>
-            </div>
+          <div className="hero-activate-button-container">
+            <button 
+              className="hero-activate-button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onActivateListening?.();
+              }}
+            >
+              👁️ Be My Eye
+            </button>
+            <p className="hero-button-hint">
+              Click the button above or say "be my eye" to start
+            </p>
           </div>
         )}
 
