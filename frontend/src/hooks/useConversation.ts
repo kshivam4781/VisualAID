@@ -476,6 +476,31 @@ export function useConversation({ socket, onVisionActivated, onVisionDeactivated
     };
   }, [state.sessionId, state.visionModeActive]);
 
+  // Listen for frame audio (TTS for frame descriptions)
+  useEffect(() => {
+    if (!socket || !state.sessionId || !state.visionModeActive) return;
+
+    const handleFrameAudio = (data: any) => {
+      console.log('📥 [Conversation] Received frame:audio event:', { 
+        sessionId: data.sessionId?.substring(0, 8), 
+        frameNumber: data.frameNumber,
+        audioLength: data.audio?.length 
+      });
+      
+      if (data.sessionId === state.sessionId && data.audio) {
+        // Play frame audio through the conversation system
+        console.log('🔊 Playing frame audio through conversation system...');
+        playAudio(data.audio, false); // Not a greeting
+      }
+    };
+
+    socket.on('frame:audio', handleFrameAudio);
+    
+    return () => {
+      socket.off('frame:audio', handleFrameAudio);
+    };
+  }, [socket, state.sessionId, state.visionModeActive, playAudio]);
+
   // Listen for conversation events
   useEffect(() => {
     if (!socket) return;
