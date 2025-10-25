@@ -74,11 +74,11 @@ export const useAudioQueue = () => {
    * ➕ Add audio to queue
    */
   const enqueue = useCallback(async (item: AudioQueueItem) => {
-    console.log(`🎵 Enqueuing audio: ${item.id} (priority: ${item.priority})`);
+    console.log(`🎵 [AUDIO QUEUE] Enqueuing audio: ${item.id} (priority: ${item.priority})`);
 
     // If urgent, stop current and clear non-urgent queue
     if (item.priority === 'urgent') {
-      console.log('🚨 URGENT audio - stopping current and clearing queue');
+      console.log('🚨 [AUDIO QUEUE] URGENT audio - stopping current and clearing queue');
       stopCurrent();
       clearQueue('high'); // Keep only urgent and high priority items
       isProcessingRef.current = false;
@@ -123,7 +123,7 @@ export const useAudioQueue = () => {
     isProcessingRef.current = true;
     const item = queueRef.current.shift()!;
     
-    console.log(`▶️  Playing audio: ${item.id} (${queueRef.current.length} remaining)`);
+    console.log(`▶️  [AUDIO QUEUE] Playing audio: ${item.id} (${queueRef.current.length} remaining)`);
     
     setState(prev => ({ 
       ...prev, 
@@ -177,7 +177,7 @@ export const useAudioQueue = () => {
       await new Promise<void>((resolve, reject) => {
         audio.onended = () => {
           if (shouldRevoke) URL.revokeObjectURL(audioUrl);
-          console.log(`✅ Finished playing: ${item.id}`);
+          console.log(`✅ [AUDIO QUEUE] Finished playing: ${item.id}`);
           item.onEnd?.();
           resolve();
         };

@@ -22,7 +22,7 @@ import { openai } from './services/openaiService.js';
 import * as RealtimeService from './services/openaiRealtimeService.js';
 import * as TTSService from './services/openaiTTSService.js';
 import * as ResponseCache from './services/responseCacheService.js';
-import * as ConversationService from './services/geminiConversationService.js';
+import * as GeminiConversationService from './services/geminiConversationService.js';
 import fs from 'fs/promises';
 
 // Load environment variables from backend/.env explicitly
@@ -208,6 +208,13 @@ io.on('connection', (socket) => {
         });
       }
       
+      // Send frame captured event to frontend for tracking
+      socket.emit('frame:captured', {
+        sessionId,
+        frameNumber: metadata.captureCount,
+        timestamp: Date.now()
+      });
+      
       // 🚀 PARALLEL FAST SCAN + FULL ANALYSIS
       // Get previous frame analysis for context comparison
       const previousAnalysis = frameHistory.get(sessionId)?.lastAnalysis || null;
@@ -235,13 +242,13 @@ io.on('connection', (socket) => {
       
       // 🤖 Full analysis continues in parallel (2-3s)
       fullAnalysisPromise.then(async (analysis) => {
+          console.log(`🎯 [ANALYSIS SUCCESS] ChatGPT Analysis complete for frame ${metadata.captureCount}`);
           
           // Store analysis for next frame comparison
           frameHistory.set(sessionId, {
             frameCount: metadata.captureCount,
             lastAnalysis: analysis
           });
-          console.log(`🎯 ChatGPT Analysis complete for frame ${metadata.captureCount}`);
           
           // Detect critical obstacles
           const criticalObstacles = OpenAIService.detectCriticalObstacles(analysis);
@@ -299,8 +306,11 @@ io.on('connection', (socket) => {
               safetyLevel: analysis.safetyLevel,
               obstacles: analysis.obstacles,
               criticalObstacles: criticalObstacles,
-              navigationGuidance: analysis.navigationGuidance
+              navigationGuidance: analysis.navigationGuidance,
+              // Include all analysis data for frontend comparison
+              ...analysis
             },
+            frameImage: frameData, // Include the original frame image for visual comparison
             timestamp: Date.now()
           });
           
@@ -362,7 +372,8 @@ io.on('connection', (socket) => {
           }
         })
         .catch(error => {
-          console.error(`❌ AI Analysis failed for frame ${metadata.captureCount}:`, error.message);
+          console.error(`❌ [ANALYSIS FAILED] AI Analysis failed for frame ${metadata.captureCount}:`, error.message);
+          console.error(`❌ [ANALYSIS FAILED] Error details:`, error);
           
           // Still save basic metadata to database even if analysis fails
           query(
@@ -599,13 +610,13 @@ Please answer this question based on the current camera view. Be concise and spe
       console.log(`   User name: ${userName || 'Anonymous'}`);
       
       // Create conversation session
-      ConversationService.createConversationSession(sessionId, {
+      GeminiConversationService.createConversationSession(sessionId, {
         userInfo: { name: userName }
       });
       console.log(`✅ Conversation session created`);
       
       // Get greeting
-      const greeting = ConversationService.getConversationGreeting(userName);
+      const greeting = GeminiConversationService.getConversationGreeting(userName);
       console.log(`✅ Got greeting: "${greeting.substring(0, 50)}..."`);
       
       // Generate TTS for greeting
@@ -652,7 +663,7 @@ Please answer this question based on the current camera view. Be concise and spe
       
       // Send message to Gemini and get response
       console.log(`🤖 Sending to Gemini AI...`);
-      const result = await ConversationService.sendMessage(sessionId, message, context);
+      const result = await GeminiConversationService.sendMessage(sessionId, message, context);
       console.log(`✅ Got response from Gemini:`, {
         success: result.success,
         responseLength: result.response?.length,
@@ -749,7 +760,7 @@ Please answer this question based on the current camera view. Be concise and spe
       let fullResponse = '';
       
       // Stream response chunks to client
-      const result = await ConversationService.sendMessageStreaming(
+      const result = await GeminiConversationService.sendMessageStreaming(
         sessionId,
         message,
         context,
@@ -805,7 +816,7 @@ Please answer this question based on the current camera view. Be concise and spe
     try {
       console.log(`💬 Explaining feature: ${featureName}`);
       
-      const result = await ConversationService.explainFeature(sessionId, featureName);
+      const result = await GeminiConversationService.explainFeature(sessionId, featureName);
       
       if (result.success) {
         // Generate TTS
@@ -858,7 +869,7 @@ Please answer this question based on the current camera view. Be concise and spe
     const { sessionId } = data;
     
     console.log(`💬 Ending conversation: ${sessionId.substring(0, 8)}`);
-    ConversationService.endConversationSession(sessionId);
+          GeminiConversationService.endConversationSession(sessionId);
     
     socket.emit('conversation:ended', {
       sessionId,

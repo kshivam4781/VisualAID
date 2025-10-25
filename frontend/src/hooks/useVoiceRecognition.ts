@@ -1,6 +1,13 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import type { VoiceState, VoiceCommand } from '../types/voice';
+import { isRealtimeEnabled } from '../config/voice';
 
+/**
+ * 🎤 Voice Recognition Hook
+ * 
+ * Note: When OpenAI Realtime is enabled, voice input/output is handled by useRealtimeAudio hook.
+ * This hook maintains compatibility for non-Realtime mode (not currently used).
+ */
 export const useVoiceRecognition = () => {
   const [voiceState, setVoiceState] = useState<VoiceState>({
     isListening: false,
@@ -10,135 +17,18 @@ export const useVoiceRecognition = () => {
     lastCommand: null,
   });
 
-  const recognitionRef = useRef<any>(null);
-  const restartTimeoutRef = useRef<number | null>(null);
-
-  // Check if browser supports Web Speech API
+  // Check if Realtime API is enabled (which we are using)
   const isSupported = useCallback(() => {
-    return 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window;
+    // If Realtime API is enabled, this hook is not used for actual recognition
+    // The useRealtimeAudio hook handles that
+    return isRealtimeEnabled();
   }, []);
 
-  // Initialize speech recognition
-  useEffect(() => {
-    if (!isSupported()) {
-      setVoiceState(prev => ({
-        ...prev,
-        error: 'Speech recognition is not supported in this browser. Please use Chrome or Edge.',
-      }));
-      return;
-    }
-
-    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognitionAPI();
-
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => {
-      console.log('Voice recognition started');
-      setVoiceState(prev => ({ ...prev, isListening: true, error: null }));
-    };
-
-    recognition.onresult = (event: any) => {
-      let interimTranscript = '';
-      let finalTranscript = '';
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        const confidence = event.results[i][0].confidence;
-
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript;
-          
-          // Create voice command
-          const command: VoiceCommand = {
-            command: transcript.toLowerCase().trim(),
-            transcript: transcript,
-            timestamp: new Date(),
-            confidence: confidence,
-          };
-
-          console.log('Voice command detected:', command);
-
-          setVoiceState(prev => ({
-            ...prev,
-            transcript: finalTranscript,
-            lastCommand: command,
-          }));
-
-          // Check for wake words
-          handleWakeWords(command.command);
-        } else {
-          interimTranscript += transcript;
-        }
-      }
-
-      if (interimTranscript) {
-        setVoiceState(prev => ({ ...prev, transcript: interimTranscript }));
-      }
-    };
-
-    recognition.onerror = (event: any) => {
-      console.error('Speech recognition error:', event.error);
-      
-      let errorMessage = 'Voice recognition error occurred.';
-      
-      switch (event.error) {
-        case 'no-speech':
-          errorMessage = 'No speech detected. Please try again.';
-          break;
-        case 'audio-capture':
-          errorMessage = 'No microphone found. Please check your audio settings.';
-          break;
-        case 'not-allowed':
-          errorMessage = 'Microphone permission denied. Please allow microphone access.';
-          break;
-        case 'network':
-          errorMessage = 'Network error occurred. Please check your connection.';
-          break;
-        default:
-          errorMessage = `Speech recognition error: ${event.error}`;
-      }
-
-      setVoiceState(prev => ({
-        ...prev,
-        error: errorMessage,
-        isListening: false,
-      }));
-    };
-
-    recognition.onend = () => {
-      console.log('Voice recognition ended');
-      setVoiceState(prev => ({ ...prev, isListening: false }));
-
-      // Auto-restart if still in active mode
-      if (voiceState.isActive) {
-        restartTimeoutRef.current = setTimeout(() => {
-          try {
-            recognition.start();
-          } catch (error) {
-            console.error('Error restarting recognition:', error);
-          }
-        }, 100);
-      }
-    };
-
-    recognitionRef.current = recognition;
-
-    return () => {
-      if (restartTimeoutRef.current) {
-        clearTimeout(restartTimeoutRef.current);
-      }
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
-  }, [isSupported, voiceState.isActive]);
+  // Note: When using OpenAI Realtime, voice recognition is handled by useRealtimeAudio hook
+  // This hook is kept for compatibility but doesn't initialize Web Speech API
 
   // Handle wake words
-  const handleWakeWords = (command: string) => {
+  const handleWakeWords = useCallback((command: string) => {
     const normalizedCommand = command.toLowerCase().trim();
 
     // Check for "be my eye" wake word
@@ -160,39 +50,23 @@ export const useVoiceRecognition = () => {
         isActive: false,
       }));
     }
-  };
+  }, [voiceState.isActive]);
 
   // Start listening
+  // Note: When Realtime is enabled, actual listening is handled by useRealtimeAudio
   const startListening = useCallback(() => {
-    if (!isSupported()) {
-      setVoiceState(prev => ({
-        ...prev,
-        error: 'Speech recognition is not supported in this browser.',
-      }));
-      return;
-    }
-
-    try {
-      if (recognitionRef.current && !voiceState.isListening) {
-        recognitionRef.current.start();
-      }
-    } catch (error) {
-      console.error('Error starting recognition:', error);
-      setVoiceState(prev => ({
-        ...prev,
-        error: 'Failed to start voice recognition.',
-      }));
-    }
-  }, [isSupported, voiceState.isListening]);
+    console.log('🎤 startListening called - using OpenAI Realtime for voice recognition');
+    setVoiceState(prev => ({
+      ...prev,
+      isListening: true,
+      error: null,
+    }));
+  }, []);
 
   // Stop listening
+  // Note: When Realtime is enabled, actual stopping is handled by useRealtimeAudio
   const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      if (restartTimeoutRef.current) {
-        clearTimeout(restartTimeoutRef.current);
-      }
-    }
+    console.log('🎤 stopListening called');
     setVoiceState(prev => ({
       ...prev,
       isListening: false,

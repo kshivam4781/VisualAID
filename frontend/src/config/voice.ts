@@ -33,7 +33,7 @@ export interface VoiceConfig {
  */
 export const voiceConfig: VoiceConfig = {
   // Switch between 'browser' and 'openai-realtime'
-  mode: 'browser', // Using browser mode (free, via OpenAI TTS API)
+  mode: 'openai-realtime', // Using OpenAI Realtime API with nova voice
   
   browserTTS: {
     rate: 1.0,
@@ -43,8 +43,8 @@ export const voiceConfig: VoiceConfig = {
   },
   
   realtimeAPI: {
-    voice: 'alloy', // Options: alloy, echo, fable, onyx, nova, shimmer
-    enabled: false
+    voice: 'nova', // Using nova voice consistently throughout the system
+    enabled: true
   }
 };
 

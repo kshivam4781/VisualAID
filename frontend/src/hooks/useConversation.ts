@@ -60,6 +60,17 @@ export function useConversation({ socket, onVisionActivated, onVisionDeactivated
   const isStartingRef = useRef(false); // Prevent double-start
   const lastSentMessageRef = useRef<string>(''); // Track last sent message to prevent duplicates
   const lastMessageTimeRef = useRef<number>(0);
+  
+  // Frame analysis caching to prevent repetitive descriptions
+  const previousFrameAnalysisRef = useRef<any>(null);
+  const frameAnalysisCacheRef = useRef<Map<string, any>>(new Map());
+  
+  // Visual comparison - store previous frame image for comparison
+  const previousFrameImageRef = useRef<string | null>(null);
+  const previousFrameNumberRef = useRef<number>(0);
+  
+  // Frame analysis timeout tracking
+  const frameAnalysisTimeoutsRef = useRef<Map<number, NodeJS.Timeout>>(new Map());
 
   // Initialize speech recognition (ONCE - not on every render)
   useEffect(() => {
@@ -307,29 +318,155 @@ export function useConversation({ socket, onVisionActivated, onVisionDeactivated
     };
   }, []); // Empty deps - speech recognition initialized once, handlers use socketRef
 
+  // Function to create visual comparison prompt
+  const createVisualComparisonPrompt = (
+    previousImage: string,
+    currentImage: string,
+    previousAnalysis: any,
+    currentAnalysis: any,
+    previousFrameNumber: number,
+    currentFrameNumber: number
+  ) => {
+    return `[VISUAL COMPARISON - Frame ${previousFrameNumber} vs Frame ${currentFrameNumber}]
+
+I need you to compare these two images and tell me what has changed. Focus on the most important and noticeable changes that would be relevant to describe to a user.
+
+PREVIOUS FRAME (${previousFrameNumber}) ANALYSIS:
+- Scene: ${previousAnalysis.sceneDescription || previousAnalysis.description || 'Unknown'}
+- Objects: ${(previousAnalysis.relevantObjects || previousAnalysis.objects || []).map((o: any) => o.name).join(', ') || 'None'}
+- Safety: ${previousAnalysis.safetyLevel || 'unknown'}
+- Obstacles: ${(previousAnalysis.obstacles || []).map((o: any) => `${o.name} at ${o.distance}`).join(', ') || 'None'}
+- Focused Object: ${previousAnalysis.focusedObject?.detected ? `${previousAnalysis.focusedObject.type} - ${previousAnalysis.focusedObject.name}` : 'None'}
+
+CURRENT FRAME (${currentFrameNumber}) ANALYSIS:
+- Scene: ${currentAnalysis.sceneDescription || currentAnalysis.description || 'Unknown'}
+- Objects: ${(currentAnalysis.relevantObjects || currentAnalysis.objects || []).map((o: any) => o.name).join(', ') || 'None'}
+- Safety: ${currentAnalysis.safetyLevel || 'unknown'}
+- Obstacles: ${(currentAnalysis.obstacles || []).map((o: any) => `${o.name} at ${o.distance}`).join(', ') || 'None'}
+- Focused Object: ${currentAnalysis.focusedObject?.detected ? `${currentAnalysis.focusedObject.type} - ${currentAnalysis.focusedObject.name}` : 'None'}
+
+VISUAL COMPARISON INSTRUCTIONS:
+1. Look at both images carefully
+2. Identify what has changed between the two frames
+3. Focus on:
+   - People: position, posture, what they're doing, where they're looking
+   - Objects: moved, appeared, disappeared
+   - Environment: lighting changes, new elements
+   - Safety: new obstacles, hazards, or dangers
+4. Be specific about the changes
+5. If nothing significant has changed, say so clearly
+6. Prioritize changes that affect the user's safety or navigation
+
+IMPORTANT: Only describe what has actually changed. Don't repeat information about things that are the same.
+
+[Previous Frame Image]
+${previousImage}
+
+[Current Frame Image]
+${currentImage}
+
+Please analyze the differences and provide a brief, focused description of what has changed.`;
+  };
+
   // Listen for frame analysis and send to Nova for description (ONLY important changes)
   useEffect(() => {
     const currentSocket = socketRef.current;
-    if (!currentSocket || !state.sessionId || !state.visionModeActive) return;
+    console.log('🔍 [FRAME ANALYSIS] Checking conditions:', {
+      hasSocket: !!currentSocket,
+      hasSessionId: !!state.sessionId,
+      visionModeActive: state.visionModeActive,
+      sessionId: state.sessionId?.substring(0, 8)
+    });
+    
+    if (!currentSocket || !state.sessionId || !state.visionModeActive) {
+      console.log('❌ [FRAME ANALYSIS] Conditions not met, skipping frame analysis setup');
+      return;
+    }
+    
+    console.log('✅ [FRAME ANALYSIS] Setting up frame analysis listeners');
     
     const handleFrameAnalyzed = (data: any) => {
+      console.log(`🎬 [FRAME ANALYZED] Received frame:analyzed event for frame ${data.frameNumber}`);
       const analysis = data.analysis;
-      
-      // Only auto-describe if there are important changes (dangers, obstacles, or first frame)
-      // Extract clean data from GPT-4 Vision analysis for Nova
       const isFirstFrame = data.frameNumber === 1;
+      const currentFrameImage = data.frameImage; // Base64 image data
       
-      const hasImportantChanges = 
-        isFirstFrame || // First frame always important
-        analysis.safetyLevel === 'danger' ||
-        analysis.safetyLevel === 'caution' ||
-        (analysis.obstacles && analysis.obstacles.length > 0) ||
-        (analysis.warnings && analysis.warnings.length > 0) ||
-        (analysis.movingObjects && analysis.movingObjects.length > 0);
+      // Create a cache key for this frame analysis
+      const cacheKey = `frame_${data.frameNumber}`;
       
-      if (!hasImportantChanges) {
-        console.log(`ℹ️ Frame ${data.frameNumber}: No important changes, Nova stays quiet`);
-        return;
+      // Store current analysis in cache
+      frameAnalysisCacheRef.current.set(cacheKey, {
+        ...analysis,
+        frameNumber: data.frameNumber,
+        timestamp: Date.now(),
+        frameImage: currentFrameImage
+      });
+      
+      // Clear any existing timeout for this frame
+      const existingTimeout = frameAnalysisTimeoutsRef.current.get(data.frameNumber);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+        frameAnalysisTimeoutsRef.current.delete(data.frameNumber);
+      }
+      
+      // For first frame, always describe
+      if (isFirstFrame) {
+        console.log(`🎬 Frame ${data.frameNumber}: First frame - describing scene`);
+        
+        // Store current frame as previous for next comparison
+        previousFrameAnalysisRef.current = analysis;
+        previousFrameImageRef.current = currentFrameImage;
+        previousFrameNumberRef.current = data.frameNumber;
+        
+        // Continue with normal first frame processing...
+      } else {
+        // For subsequent frames, do visual comparison
+        const previousAnalysis = previousFrameAnalysisRef.current;
+        const previousFrameImage = previousFrameImageRef.current;
+        
+        if (!previousAnalysis || !previousFrameImage) {
+          console.log(`⚠️ Frame ${data.frameNumber}: No previous frame data for comparison`);
+          // Store current as previous and continue
+          previousFrameAnalysisRef.current = analysis;
+          previousFrameImageRef.current = currentFrameImage;
+          previousFrameNumberRef.current = data.frameNumber;
+          return;
+        }
+        
+        console.log(`🔍 Frame ${data.frameNumber}: Comparing with previous frame ${previousFrameNumberRef.current}`);
+        
+        // Create visual comparison prompt for AI
+        const visualComparisonPrompt = createVisualComparisonPrompt(
+          previousFrameImage,
+          currentFrameImage,
+          previousAnalysis,
+          analysis,
+          previousFrameNumberRef.current,
+          data.frameNumber
+        );
+        
+        // Send visual comparison to AI for analysis
+        const socket = socketRef.current;
+        if (socket && socket.connected) {
+          console.log(`📤 Sending visual comparison to AI for frame ${data.frameNumber}`);
+          socket.emit('conversation:message', {
+            sessionId: state.sessionId,
+            message: visualComparisonPrompt,
+            context: {
+              isFrameAnalysis: true,
+              frameNumber: data.frameNumber,
+              isVisualComparison: true,
+              previousFrameNumber: previousFrameNumberRef.current,
+              automated: true
+            }
+          });
+        }
+        
+        // Update previous frame references
+        previousFrameAnalysisRef.current = analysis;
+        previousFrameImageRef.current = currentFrameImage;
+        previousFrameNumberRef.current = data.frameNumber;
+        return; // Exit early for visual comparison
       }
       
       const cameraOrientation = analysis.cameraOrientation || null;
@@ -392,10 +529,19 @@ export function useConversation({ socket, onVisionActivated, onVisionDeactivated
         }
         if (conversationalQuestion) prompt += `Question for user: ${conversationalQuestion}\n`;
       } else {
-        // Subsequent frames: Focus on changes
-        prompt += `Scene: ${sceneDesc}\n`;
+        // Subsequent frames: Focus ONLY on what has changed
+        prompt += `CHANGES DETECTED:\n`;
+        prompt += `Current scene: ${sceneDesc}\n`;
+        
+        // Only mention objects if they're new or different
         if (relevantObjects.length > 0) {
-          prompt += `Objects: ${relevantObjects.map((o: any) => o.name).join(', ')}\n`;
+          const previousObjects = previousAnalysis?.relevantObjects || previousAnalysis?.objects || [];
+          const newObjects = relevantObjects.filter((currentObj: any) => 
+            !previousObjects.some((prevObj: any) => prevObj.name === currentObj.name)
+          );
+          if (newObjects.length > 0) {
+            prompt += `New objects: ${newObjects.map((o: any) => o.name).join(', ')}\n`;
+          }
         }
       }
       
@@ -449,7 +595,12 @@ export function useConversation({ socket, onVisionActivated, onVisionDeactivated
           } else if (hasUserMoving) {
             prompt += `\n[User is moving - provide navigation guidance based on obstacles and path status. Focus on where they're going and any obstacles ahead.]`;
           } else {
-            prompt += `\n[User appears stationary - focus on what they're looking at. If there's a person very close (30%+ of frame), analyze them in detail. If someone is moving in the background, mention it briefly.]`;
+            // For subsequent frames, focus on changes only
+            if (isFirstFrame) {
+              prompt += `\n[This is the FIRST view - give user a complete description of their surroundings in 2-3 sentences. Describe the environment type, what's ahead, and any obstacles. IMPORTANT: If there's a person sitting or standing directly in front of the camera, they are an obstacle blocking the path - describe them as such! If there's a person very close (taking up 30%+ of the frame), analyze them in detail: describe their appearance, facial expression, body language, what they're doing, and their emotional state. Be friendly and welcoming - this is their first glimpse through your eyes!]`;
+            } else {
+              prompt += `\n[CHANGE DETECTED: Only describe what has changed from the previous view. Be brief and specific about the new information. If nothing significant has changed, just say "I see the same view as before" or stay quiet if appropriate.]`;
+            }
           }
         }
       }
@@ -471,27 +622,47 @@ export function useConversation({ socket, onVisionActivated, onVisionDeactivated
     
     currentSocket.on('frame:analyzed', handleFrameAnalyzed);
     
+    // Also listen for frame capture events to detect when frames are sent but not analyzed
+    const handleFrameCaptured = (data: any) => {
+      console.log(`📸 [FRAME CAPTURED] Frame ${data.frameNumber} captured and sent to backend`);
+      
+      // Set a timeout to detect if analysis doesn't come back
+      const timeout = setTimeout(() => {
+        console.warn(`⚠️ [FRAME TIMEOUT] Frame ${data.frameNumber} analysis timed out after 10 seconds`);
+        console.warn(`⚠️ [FRAME TIMEOUT] This suggests the backend analysis is failing for frame ${data.frameNumber}`);
+        frameAnalysisTimeoutsRef.current.delete(data.frameNumber);
+      }, 10000); // 10 second timeout
+      
+      frameAnalysisTimeoutsRef.current.set(data.frameNumber, timeout);
+    };
+    
+    currentSocket.on('frame:captured', handleFrameCaptured);
+    
     return () => {
       currentSocket.off('frame:analyzed', handleFrameAnalyzed);
+      currentSocket.off('frame:captured', handleFrameCaptured);
+      
+      // Clear all timeouts
+      frameAnalysisTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+      frameAnalysisTimeoutsRef.current.clear();
     };
   }, [state.sessionId, state.visionModeActive]);
 
   // Listen for frame audio (TTS for frame descriptions)
+  // DISABLED: Frame audio is handled by HomePage and VoiceInterface to prevent duplicate playback
+  // The conversation system should not also play frame audio
   useEffect(() => {
     if (!socket || !state.visionModeActive) return;
 
     const handleFrameAudio = (data: any) => {
-      console.log('📥 [Conversation] Received frame:audio event:', { 
+      console.log('📥 [Conversation] Received frame:audio event (IGNORED - handled elsewhere):', { 
         sessionId: data.sessionId?.substring(0, 8), 
         frameNumber: data.frameNumber,
         audioLength: data.audio?.length 
       });
       
-      // Play any frame audio when vision mode is active (don't check sessionId match)
-      if (data.audio) {
-        console.log('🔊 Playing frame audio through conversation system...');
-        playAudio(data.audio, false); // Not a greeting
-      }
+      // DO NOT PLAY - HomePage and VoiceInterface handle this to prevent duplicate audio
+      console.log('⚠️ [Conversation] Skipping frame audio playback - handled by HomePage/VoiceInterface');
     };
 
     socket.on('frame:audio', handleFrameAudio);
@@ -533,7 +704,7 @@ export function useConversation({ socket, onVisionActivated, onVisionDeactivated
 
       // Play greeting audio
       if (data.audio) {
-        console.log('🔊 Playing greeting audio...');
+        console.log('🔊 [CHATGPT REALTIME] Playing greeting audio...');
         playAudio(data.audio, true); // Mark as greeting
       } else {
         console.warn('⚠️ No audio in greeting response');
@@ -578,7 +749,7 @@ export function useConversation({ socket, onVisionActivated, onVisionDeactivated
 
       // Play response audio
       if (data.audio) {
-        console.log('🔊 Playing response audio...');
+        console.log('🔊 [CHATGPT REALTIME] Playing conversation response audio...');
         playAudio(data.audio, false); // Not a greeting, will auto-restart listening after
       } else {
         console.warn('⚠️ No audio in response');
@@ -587,6 +758,7 @@ export function useConversation({ socket, onVisionActivated, onVisionDeactivated
 
     const handleVisionActivated = (data: any) => {
       console.log('👁️ Vision mode activated via conversation');
+      console.log('👁️ Setting visionModeActive to true');
       setState(prev => ({ ...prev, visionModeActive: true }));
       onVisionActivated?.();
     };
@@ -644,12 +816,13 @@ export function useConversation({ socket, onVisionActivated, onVisionDeactivated
 
   // Play audio from base64
   const playAudio = useCallback((audioBase64: string, isGreeting: boolean = false) => {
+    console.log('🎵 [CHATGPT REALTIME] playAudio called', { isGreeting, audioLength: audioBase64.length });
     setState(prev => ({ ...prev, isSpeaking: true }));
 
     const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
     
     audio.onended = () => {
-      console.log('🔊 Audio playback ended', { isGreeting, queueLength: audioQueueRef.current.length });
+      console.log('🔊 [CHATGPT REALTIME] Audio playback ended', { isGreeting, queueLength: audioQueueRef.current.length });
       setState(prev => ({ ...prev, isSpeaking: false }));
       audioQueueRef.current.shift();
       

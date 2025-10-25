@@ -124,18 +124,8 @@ export const VOICES = {
  * Recommended voices for different scenarios:
  */
 export const getVoiceForContext = (context) => {
-  switch (context) {
-    case 'greeting':
-      return 'nova'; // Bright and welcoming
-    case 'navigation':
-      return 'alloy'; // Clear and neutral
-    case 'alert':
-      return 'onyx'; // Authoritative and urgent
-    case 'description':
-      return 'fable'; // Warm and descriptive
-    default:
-      return 'alloy'; // Default
-  }
+  // Using nova voice consistently throughout the system
+  return 'nova';
 };
 
 export default {

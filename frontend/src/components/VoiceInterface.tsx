@@ -232,7 +232,7 @@ export const VoiceInterface: React.FC = () => {
     if (!sessionState.sessionId) return;
 
     const handleFrameAudio = (data: any) => {
-      console.log(`📥 Received frame:audio event:`, { 
+      console.log(`📥 [VoiceInterface] Received frame:audio event:`, { 
         sessionId: data.sessionId?.substring(0, 8), 
         frameNumber: data.frameNumber,
         currentSessionId: sessionState.sessionId?.substring(0, 8),
@@ -247,6 +247,7 @@ export const VoiceInterface: React.FC = () => {
           stopListening();
         }
         
+        console.log(`🎵 [VoiceInterface] Adding frame audio to queue via audioQueue`);
         // Add to centralized queue - prevents overlapping!
         audioQueue.playBase64(
           data.audio, 

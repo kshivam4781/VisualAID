@@ -69,7 +69,7 @@ Your role is to:
 When the user asks "what do you see?" or similar questions, describe the current environment based on the frame analysis I provide.
 
 Remember: This person cannot see, so your descriptions are their eyes. Be clear, specific, and supportive.`,
-          voice: 'alloy', // Options: alloy, echo, fable, onyx, nova, shimmer
+          voice: 'nova', // Using nova voice consistently throughout the system
           input_audio_format: 'pcm16',
           output_audio_format: 'pcm16',
           input_audio_transcription: {

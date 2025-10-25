@@ -25,7 +25,7 @@ router.post('/', async (req, res) => {
     }
     
     // Select voice based on context or use specified voice
-    const selectedVoice = voice || (context ? getVoiceForContext(context) : 'alloy');
+    const selectedVoice = voice || (context ? getVoiceForContext(context) : 'nova');
     
     console.log(`🔊 TTS Request: "${text.substring(0, 50)}..." (voice: ${selectedVoice})`);
     
@@ -69,7 +69,7 @@ router.post('/base64', async (req, res) => {
       });
     }
     
-    const selectedVoice = voice || (context ? getVoiceForContext(context) : 'alloy');
+    const selectedVoice = voice || (context ? getVoiceForContext(context) : 'nova');
     
     console.log(`🔊 TTS Base64 Request: "${text.substring(0, 50)}..." (voice: ${selectedVoice})`);
     

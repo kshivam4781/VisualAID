@@ -282,6 +282,7 @@ export const HomePage: React.FC = () => {
         });
         
         if (data.sessionId === sessionState.sessionId && data.audio) {
+          console.log(`🎵 [HomePage] Adding frame audio to queue via audioQueue`);
           // Add to centralized queue - prevents overlapping!
           audioQueue.playBase64(
             data.audio, 

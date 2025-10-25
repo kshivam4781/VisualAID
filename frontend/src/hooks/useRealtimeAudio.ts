@@ -49,14 +49,26 @@ export const useRealtimeAudio = ({ socket, sessionId, enabled }: RealtimeAudioCo
       // Create audio context
       audioContextRef.current = new AudioContext({ sampleRate: 24000 });
 
-      // Get microphone access
+      // ✅ IMPROVED: Better audio constraints for Google-quality recognition
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           sampleRate: 24000,
           channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
+          // ✅ CRITICAL: These three settings dramatically improve speech recognition
+          echoCancellation: true,    // Remove speaker feedback
+          noiseSuppression: true,    // Reduce background noise
+          autoGainControl: true,     // Normalize volume levels
+          
+          // ✅ NEW: Additional constraints for even better quality
+          googEchoCancellation: true,      // Google's echo cancellation
+          googNoiseSuppression: true,      // Google's noise suppression
+          googAutoGainControl: true,       // Google's automatic gain control
+          googHighpassFilter: true,        // Remove low-frequency noise
+          googTypingNoiseDetection: true,  // Detect keyboard/mouse clicks
+          googAudioMirroring: false,       // No audio mirroring
+          
+          // Additional browser-specific optimizations
+          latency: 0,                      // Minimum latency
         }
       });
 
@@ -73,6 +85,21 @@ export const useRealtimeAudio = ({ socket, sessionId, enabled }: RealtimeAudioCo
         if (!enabled || !sessionId || !socket) return;
 
         const inputData = e.inputBuffer.getChannelData(0);
+        
+        // ✅ IMPROVED: Better audio processing with noise gate
+        // Apply noise gate to reduce background noise further
+        const noiseGateThreshold = 0.01; // Only process audio above this threshold
+        let maxAmplitude = 0;
+        for (let i = 0; i < inputData.length; i++) {
+          if (Math.abs(inputData[i]) > maxAmplitude) {
+            maxAmplitude = Math.abs(inputData[i]);
+          }
+        }
+        
+        // Only process if audio is above noise gate
+        if (maxAmplitude < noiseGateThreshold) {
+          return; // Silence detected, skip this chunk
+        }
         
         // Convert Float32Array to Int16Array (PCM16)
         const pcm16 = new Int16Array(inputData.length);
@@ -97,7 +124,7 @@ export const useRealtimeAudio = ({ socket, sessionId, enabled }: RealtimeAudioCo
       processor.connect(audioContextRef.current.destination);
 
       setState(prev => ({ ...prev, isRecording: true }));
-      console.log('✅ Audio capture initialized');
+      console.log('✅ Audio capture initialized with enhanced settings');
 
     } catch (error) {
       console.error('❌ Failed to initialize audio:', error);
