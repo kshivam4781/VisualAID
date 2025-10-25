@@ -347,6 +347,134 @@ export const HomePage: React.FC = () => {
     }
   };
 
+  const handleBeMyEye = () => {
+    console.log('👁️ Be My Eye button clicked - activating vision directly');
+    
+    // Start conversation if not already started
+    if (!hasStarted) {
+      setHasStarted(true);
+      console.log('🤖 Starting conversation with Nova...');
+      conversation.startConversation();
+      
+      // Wait a bit for the conversation to initialize, then activate vision
+      setTimeout(() => {
+        console.log('📷 Activating vision mode after conversation started...');
+        triggerVisionActivation();
+      }, 1000);
+    } else {
+      // Conversation already started, activate vision immediately
+      triggerVisionActivation();
+    }
+  };
+
+  const triggerVisionActivation = () => {
+    // Use the same logic as onVisionActivated callback
+    if (visionActivatingRef.current) {
+      console.log('⚠️ Vision already activating, skipping duplicate');
+      return;
+    }
+    
+    visionActivatingRef.current = true;
+    console.log('📷 Starting camera for vision mode...');
+    
+    if (!cameraState.isActive) {
+      startCamera().then(success => {
+        if (success && videoRef.current) {
+          console.log('📷 Camera started, attaching to video element...');
+          
+          const videoElement = videoRef.current;
+          attachToVideo(videoElement);
+          
+          const waitForVideo = new Promise<void>((resolve) => {
+            if (videoElement.readyState >= videoElement.HAVE_ENOUGH_DATA) {
+              console.log('✅ Video already ready');
+              resolve();
+            } else {
+              const onLoadedData = () => {
+                videoElement.removeEventListener('loadeddata', onLoadedData);
+                resolve();
+              };
+              videoElement.addEventListener('loadeddata', onLoadedData);
+            }
+          });
+          
+          waitForVideo.then(() => {
+            console.log('📷 Video element ready, now starting session and frame capture...');
+            
+            if (!sessionState.isActive && isWebSocketConnected) {
+              startSession(undefined, {
+                userAgent: navigator.userAgent,
+                startedFrom: 'button_click',
+                browserInfo: {
+                  language: navigator.language,
+                  platform: navigator.platform,
+                }
+                              }).then(sessionSuccess => {
+                  if (sessionSuccess && videoRef.current) {
+                    console.log('✅ Session started, beginning frame capture...');
+                    startCapture(videoRef.current);
+                    setHeroMessage('Vision mode active. I can see what you see now.');
+                    
+                    // Start describing what the camera sees
+                    console.log('🔊 Beginning vision analysis...');
+                    
+                    // Emit vision_activated event to enable frame analysis
+                    console.log('👁️ Emitting vision_activated event to enable frame analysis');
+                    if (socket && conversation.state.sessionId) {
+                      socket.emit('conversation:vision_activated', {
+                        sessionId: conversation.state.sessionId,
+                        timestamp: Date.now()
+                      });
+                    }
+                  } else {
+                    console.error('❌ Failed to start session');
+                    setHeroMessage('Failed to start vision session.');
+                  }
+                  visionActivatingRef.current = false;
+                });
+            } else if (sessionState.isActive && videoRef.current && !frameCaptureState.isCapturing) {
+              console.log('✅ Session already active, starting frame capture...');
+              startCapture(videoRef.current);
+              setHeroMessage('Vision mode active. I can see what you see now.');
+              visionActivatingRef.current = false;
+            }
+          });
+        } else {
+          console.error('❌ Failed to start camera');
+          setHeroMessage('Failed to start camera.');
+          visionActivatingRef.current = false;
+        }
+      });
+    } else {
+      // Camera already active, make sure frame capture is running
+      console.log('📷 Camera already active, ensuring frame capture is running...');
+      if (!frameCaptureState.isCapturing && videoRef.current) {
+        if (!sessionState.isActive && isWebSocketConnected) {
+          startSession(undefined, {
+            userAgent: navigator.userAgent,
+            startedFrom: 'button_click',
+            browserInfo: {
+              language: navigator.language,
+              platform: navigator.platform,
+            }
+          }).then(sessionSuccess => {
+            if (sessionSuccess && videoRef.current) {
+              startCapture(videoRef.current);
+              setHeroMessage('Vision mode active. I can see what you see now.');
+            }
+            visionActivatingRef.current = false;
+          });
+        } else if (sessionState.isActive && videoRef.current) {
+          startCapture(videoRef.current);
+          setHeroMessage('Vision mode active. I can see what you see now.');
+          visionActivatingRef.current = false;
+        }
+      } else {
+        visionActivatingRef.current = false;
+      }
+    }
+  };
+
   // Handle voice commands (OLD SYSTEM - disabled when conversation is active)
   useEffect(() => {
     // Skip if conversation mode is active (Nova handles everything)
@@ -435,6 +563,7 @@ export const HomePage: React.FC = () => {
           isSpeaking={conversation.state.isSpeaking || ttsState.isSpeaking}
           isListening={conversation.state.isListening || voiceState.isListening}
           onActivateListening={handleActivateListening}
+          onBeMyEye={handleBeMyEye}
           transcript={conversation.state.transcript || voiceState.transcript}
           cameraActive={cameraState.isActive}
         />

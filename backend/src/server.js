@@ -835,6 +835,23 @@ Please answer this question based on the current camera view. Be concise and spe
   });
 
   /**
+   * 👁️ Handle vision activation (emitted from client button click)
+   */
+  socket.on('conversation:vision_activated', (data) => {
+    const { sessionId } = data;
+    
+    console.log(`👁️ Vision activated for session ${sessionId.substring(0, 8)}`);
+    
+    // Echo the event back to client to enable frame analysis
+    socket.emit('conversation:vision_activated', {
+      sessionId,
+      timestamp: new Date().toISOString()
+    });
+    
+    console.log(`✅ Vision activation signal sent to client`);
+  });
+
+  /**
    * 💬 End conversation session
    */
   socket.on('conversation:end', (data) => {
