@@ -1,0 +1,520 @@
+/* Hero Agent Section - Full Screen */
+.hero-agent-section {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  color: white;
+  cursor: pointer;
+}
+
+/* Background Layers */
+.hero-background {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.hero-grid-pattern {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background-image: 
+    linear-gradient(rgba(6, 182, 212, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6, 182, 212, 0.07) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* Hero Header/Navbar */
+.hero-header {
+  position: relative;
+  z-index: 50;
+  background: transparent;
+  backdrop-filter: none;
+  border-bottom: none;
+  padding: 1.25rem 0;
+  transition: all 0.3s ease;
+  cursor: default;
+}
+
+.hero-header-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Logo Section */
+.hero-logo-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hero-logo-icon {
+  width: 3.5rem;
+  height: 3.5rem;
+  object-fit: contain;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.hero-logo-title {
+  margin: 0;
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Navigation Menu */
+.hero-nav-menu {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+}
+
+.hero-nav-link {
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+  position: relative;
+  padding: 0.5rem 0;
+}
+
+.hero-nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: #ffffff;
+  transition: width 0.3s ease;
+}
+
+.hero-nav-link:hover {
+  color: white;
+}
+
+.hero-nav-link:hover::after {
+  width: 100%;
+}
+
+/* Sign Up Button Style */
+.hero-nav-button {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 0.625rem 1.5rem;
+  border-radius: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.hero-nav-button::after {
+  display: none;
+}
+
+.hero-nav-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+/* Content Container */
+.hero-agent-content {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: 1;
+  padding: 2rem;
+}
+
+/* Agent Visual Container */
+.agent-visual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  margin-bottom: 4rem;
+}
+
+/* Agent Circle with Blinking Eye */
+.agent-container {
+  position: relative;
+  width: 14rem;
+  height: 14rem;
+}
+
+/* Glowing Aura */
+.agent-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #ffffff;
+  filter: blur(3rem);
+  opacity: 0.5;
+  transition: all 1s ease;
+}
+
+.agent-glow-active {
+  opacity: 1;
+  transform: scale(1.25);
+}
+
+.agent-glow-listening {
+  background: #06b6d4;
+  opacity: 0.8;
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1.1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+}
+
+/* Main Gradient Circle */
+.agent-circle {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffffff 0%, #e5e7eb 50%, #d1d5db 100%);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Inner Circle */
+.agent-inner {
+  width: 66.666%;
+  height: 66.666%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Blinking Eye */
+.agent-eye {
+  width: 50%;
+  height: 50%;
+  border-radius: 50%;
+  background: #000000;
+  animation: blink 4s linear infinite;
+  transform-origin: center;
+}
+
+/* Blink Animation - Eye stays open, then quick blink */
+@keyframes blink {
+  0%, 95%, 100% {
+    transform: scaleY(1);
+  }
+  97.5% {
+    transform: scaleY(0.1);
+  }
+}
+
+/* Speech Bubble */
+.agent-speech-bubble {
+  position: relative;
+  max-width: 42rem;
+  text-align: center;
+  padding: 1.5rem 2rem;
+  background: rgba(17, 24, 39, 0.8);
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+.agent-message {
+  font-size: 1.5rem;
+  color: #e2e8f0;
+  font-weight: 500;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Speech Bubble Arrow (pointing up to agent) */
+.speech-bubble-arrow {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-bottom: 12px solid rgba(17, 24, 39, 0.8);
+}
+
+/* Voice Status Indicator */
+.voice-status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  animation: fade-in 0.3s ease;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pulse-ring {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: #06b6d4;
+  animation: pulse-ring 2s ease-in-out infinite;
+}
+
+@keyframes pulse-ring {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.5);
+  }
+}
+
+.status-text {
+  font-size: 1.125rem;
+  color: #06b6d4;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.live-transcript {
+  margin-top: 0.5rem;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-style: italic;
+  padding: 0.5rem 1rem;
+  background: rgba(6, 182, 212, 0.1);
+  border-radius: 0.5rem;
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+.camera-badge {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  border-radius: 0.5rem;
+  color: #fca5a5;
+  font-size: 0.875rem;
+  font-weight: 600;
+  animation: camera-pulse 2s ease-in-out infinite;
+}
+
+@keyframes camera-pulse {
+  0%, 100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Click Hint */
+.click-hint {
+  margin-top: 1.5rem;
+  animation: fade-in 0.3s ease;
+}
+
+.hint-text {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  animation: gentle-pulse 3s ease-in-out infinite;
+}
+
+@keyframes gentle-pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.available-commands {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.available-commands p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.05em;
+}
+
+/* Scroll Indicator */
+.scroll-indicator {
+  position: absolute;
+  bottom: 2rem;
+  right: 2rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 20;
+}
+
+.scroll-indicator:hover {
+  transform: translateY(5px);
+}
+
+.scroll-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.scroll-text {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+}
+
+.scroll-arrow {
+  width: 2rem;
+  height: 2rem;
+  color: #06b6d4;
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(10px);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 968px) {
+  .hero-nav-menu {
+    display: none;
+  }
+
+  .hero-header-container {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero-header-container {
+    padding: 0 1.5rem;
+  }
+
+  .hero-logo-icon {
+    width: 3rem;
+    height: 3rem;
+  }
+
+  .hero-logo-title {
+    font-size: 1.5rem;
+  }
+
+  .agent-container {
+    width: 12rem;
+    height: 12rem;
+  }
+
+  .agent-message {
+    font-size: 1.25rem;
+  }
+
+  .agent-speech-bubble {
+    padding: 1.25rem 1.5rem;
+    max-width: 90%;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-header-container {
+    padding: 0 1rem;
+  }
+
+  .hero-logo-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .hero-logo-title {
+    font-size: 1.125rem;
+  }
+
+  .agent-container {
+    width: 10rem;
+    height: 10rem;
+  }
+
+  .agent-message {
+    font-size: 1.125rem;
+  }
+
+  .agent-speech-bubble {
+    padding: 1rem 1.25rem;
+  }
+
+  .scroll-text {
+    font-size: 0.75rem;
+  }
+
+  .scroll-arrow {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+}
+

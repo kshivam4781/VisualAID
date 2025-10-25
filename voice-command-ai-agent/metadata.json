@@ -1,0 +1,7 @@
+{
+  "name": "Voice Command AI Agent",
+  "description": "A web application featuring a floating AI agent that operates solely on voice commands, greeting the user on startup against a unique, dynamic background.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

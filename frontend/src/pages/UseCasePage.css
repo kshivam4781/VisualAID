@@ -1,0 +1,540 @@
+/* Use Case Page Styles */
+.usecase-page {
+  width: 100%;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #000000 0%, #0f172a 50%, #1e293b 100%);
+  color: white;
+}
+
+/* Hero Agent Section - Interactive AI */
+.usecase-hero-agent {
+  width: 100%;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Hero Section */
+.usecase-hero {
+  padding: 10rem 0 6rem 0;
+  background: url('/bg-hero.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  position: relative;
+  overflow: hidden;
+}
+
+.usecase-hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    linear-gradient(rgba(6, 182, 212, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6, 182, 212, 0.05) 1px, transparent 1px);
+  background-size: 50px 50px;
+  z-index: 0;
+}
+
+.usecase-hero-content {
+  position: relative;
+  z-index: 1;
+  max-width: 1000px;
+  margin: 0 auto;
+  text-align: center;
+  padding: 0 2rem;
+}
+
+.usecase-hero-title {
+  font-size: 4rem;
+  font-weight: 700;
+  margin: 0 0 2rem 0;
+  background: linear-gradient(135deg, #ffffff 0%, #06b6d4 50%, #3b82f6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.usecase-hero-description {
+  font-size: 1.5rem;
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+/* Content Section - Professional Alternating Layout */
+.usecase-content {
+  padding: 6rem 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.usecase-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.usecase-timeline {
+  position: relative;
+}
+
+/* Center vertical line */
+.usecase-timeline::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(6, 182, 212, 0.5) 10%,
+    rgba(6, 182, 212, 0.5) 90%,
+    transparent 100%
+  );
+  transform: translateX(-50%);
+}
+
+/* Individual Use Case Item */
+.usecase-item {
+  position: relative;
+  margin-bottom: 6rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 3rem;
+  opacity: 0;
+  animation: fadeInUp 0.8s ease forwards;
+}
+
+.usecase-item:nth-child(1) { animation-delay: 0.1s; }
+.usecase-item:nth-child(2) { 
+  animation-delay: 0.2s;
+}
+
+.usecase-item:nth-child(2)::before {
+  content: '';
+  position: absolute;
+  left: -100vw;
+  top: 0;
+  bottom: 0;
+  width: 100vw;
+  background: url('/left.png');
+  background-position: left center;
+  background-size: auto 80%;
+  background-repeat: no-repeat;
+  z-index: 0;
+  pointer-events: none;
+}
+.usecase-item:nth-child(3) { animation-delay: 0.3s; }
+.usecase-item:nth-child(4) { animation-delay: 0.4s; }
+.usecase-item:nth-child(5) { animation-delay: 0.5s; }
+.usecase-item:nth-child(6) { animation-delay: 0.6s; }
+.usecase-item:nth-child(7) { animation-delay: 0.7s; }
+.usecase-item:nth-child(8) { animation-delay: 0.8s; }
+.usecase-item:nth-child(9) { animation-delay: 0.9s; }
+.usecase-item:nth-child(10) { animation-delay: 1s; }
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Left-aligned items */
+.usecase-left {
+  flex-direction: row;
+}
+
+.usecase-left .usecase-content-wrapper {
+  text-align: right;
+  margin-right: auto;
+  max-width: 500px;
+}
+
+.usecase-left .usecase-number {
+  order: 2;
+  margin-left: 3rem;
+}
+
+/* Right-aligned items */
+.usecase-right {
+  flex-direction: row-reverse;
+}
+
+.usecase-right .usecase-content-wrapper {
+  text-align: left;
+  margin-left: auto;
+  max-width: 500px;
+}
+
+.usecase-right .usecase-number {
+  order: 2;
+  margin-right: 3rem;
+}
+
+/* Large feature number */
+.usecase-number {
+  font-size: 6rem;
+  font-weight: 900;
+  color: transparent;
+  -webkit-text-stroke: 2px rgba(6, 182, 212, 0.3);
+  line-height: 1;
+  min-width: 120px;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.usecase-number::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+  border-radius: 50%;
+  transform: translateY(-50%);
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.5);
+}
+
+.usecase-left .usecase-number::after {
+  right: -10px;
+}
+
+.usecase-right .usecase-number::after {
+  left: -10px;
+}
+
+/* Content wrapper */
+.usecase-content-wrapper {
+  flex: 1;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0;
+  position: relative;
+  z-index: 1;
+  transition: all 0.3s ease;
+}
+
+.usecase-content-wrapper:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(6, 182, 212, 0.3);
+  transform: translateX(10px);
+}
+
+.usecase-right .usecase-content-wrapper:hover {
+  transform: translateX(-10px);
+}
+
+/* Header section */
+.usecase-header {
+  margin-bottom: 1.5rem;
+}
+
+.usecase-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 1rem 0;
+  color: white;
+  line-height: 1.2;
+}
+
+.usecase-divider {
+  height: 3px;
+  background: linear-gradient(90deg, #06b6d4 0%, #3b82f6 100%);
+  border-radius: 2px;
+}
+
+.usecase-left .usecase-divider {
+  margin-left: auto;
+  width: 60%;
+}
+
+.usecase-right .usecase-divider {
+  margin-right: auto;
+  width: 60%;
+}
+
+.usecase-description {
+  font-size: 1.125rem;
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 2rem 0;
+}
+
+/* Examples section */
+.usecase-examples {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.examples-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.example-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
+}
+
+.example-bullet {
+  color: #06b6d4;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.usecase-left .example-item {
+  flex-direction: row-reverse;
+}
+
+/* How It Works Section */
+.usecase-how {
+  padding: 6rem 0;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.usecase-section-title {
+  font-size: 3rem;
+  font-weight: 700;
+  text-align: center;
+  margin: 0 0 4rem 0;
+  background: linear-gradient(135deg, #ffffff 0%, #06b6d4 50%, #3b82f6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.how-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+}
+
+.how-step {
+  text-align: center;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.how-step:hover {
+  transform: translateY(-5px);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(6, 182, 212, 0.3);
+}
+
+.step-number {
+  width: 4rem;
+  height: 4rem;
+  margin: 0 auto 1.5rem;
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 700;
+  color: white;
+}
+
+.how-step h3 {
+  font-size: 1.5rem;
+  margin: 0 0 1rem 0;
+  color: white;
+}
+
+.how-step p {
+  font-size: 1.125rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* CTA Section */
+.usecase-cta {
+  padding: 6rem 0;
+  background: #0f172a url('/right.png');
+  background-position: right bottom;
+  background-size: auto 80%;
+  background-repeat: no-repeat;
+}
+
+.cta-content {
+  max-width: 800px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.cta-content h2 {
+  font-size: 3rem;
+  font-weight: 700;
+  margin: 0 0 1.5rem 0;
+  color: white;
+}
+
+.cta-content p {
+  font-size: 1.5rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 3rem 0;
+  line-height: 1.6;
+}
+
+.cta-button {
+  padding: 1.25rem 3rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+  border: none;
+  border-radius: 3rem;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(6, 182, 212, 0.4);
+}
+
+.cta-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(6, 182, 212, 0.6);
+}
+
+/* Responsive Design */
+@media (max-width: 968px) {
+  .usecase-hero-title {
+    font-size: 3rem;
+  }
+
+  .usecase-hero-description {
+    font-size: 1.25rem;
+  }
+
+  .usecase-section-title {
+    font-size: 2.5rem;
+  }
+
+  /* Stack items vertically on smaller screens */
+  .usecase-timeline::before {
+    left: 30px;
+  }
+
+  .usecase-item,
+  .usecase-left,
+  .usecase-right {
+    flex-direction: row !important;
+    gap: 2rem;
+  }
+
+  .usecase-left .usecase-content-wrapper,
+  .usecase-right .usecase-content-wrapper {
+    text-align: left;
+    margin-left: 0;
+    margin-right: 0;
+    max-width: 100%;
+  }
+
+  .usecase-left .usecase-divider,
+  .usecase-right .usecase-divider {
+    margin-left: 0;
+    width: 80%;
+  }
+
+  .usecase-left .usecase-number,
+  .usecase-right .usecase-number {
+    order: 0;
+    margin-left: 0;
+    margin-right: 0;
+    font-size: 4rem;
+    min-width: 80px;
+  }
+
+  .usecase-left .usecase-number::after,
+  .usecase-right .usecase-number::after {
+    left: -10px;
+    right: auto;
+  }
+
+  .usecase-left .example-item {
+    flex-direction: row;
+  }
+}
+
+@media (max-width: 640px) {
+  .usecase-hero {
+    padding: 6rem 0 4rem 0;
+  }
+
+  .usecase-hero-title {
+    font-size: 2.5rem;
+  }
+
+  .usecase-hero-description {
+    font-size: 1.125rem;
+  }
+
+  .usecase-content,
+  .usecase-how,
+  .usecase-cta {
+    padding: 4rem 0;
+  }
+
+  .usecase-section-title {
+    font-size: 2rem;
+  }
+
+  .cta-content h2 {
+    font-size: 2rem;
+  }
+
+  .cta-content p {
+    font-size: 1.25rem;
+  }
+
+  .how-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .usecase-timeline::before {
+    left: 20px;
+  }
+
+  .usecase-item {
+    gap: 1rem;
+    margin-bottom: 4rem;
+  }
+
+  .usecase-number {
+    font-size: 3rem;
+    min-width: 60px;
+  }
+
+  .usecase-content-wrapper {
+    padding: 1.5rem;
+  }
+
+  .usecase-title {
+    font-size: 1.5rem;
+  }
+
+  .usecase-description {
+    font-size: 1rem;
+  }
+}
+
