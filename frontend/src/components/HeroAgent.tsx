@@ -6,6 +6,7 @@ interface HeroAgentProps {
   isSpeaking?: boolean;
   isListening?: boolean;
   onActivateListening?: () => void;
+  onBeMyEye?: () => void;
   transcript?: string;
   cameraActive?: boolean;
 }
@@ -15,6 +16,7 @@ export const HeroAgent: React.FC<HeroAgentProps> = ({
   isSpeaking = false,
   isListening = false,
   onActivateListening,
+  onBeMyEye,
   transcript = '',
   cameraActive = false
 }) => {
@@ -87,8 +89,8 @@ export const HeroAgent: React.FC<HeroAgentProps> = ({
           </div>
         </div>
 
-        {/* Voice Status Indicator or Be My Eye Button */}
-        {isListening ? (
+        {/* Voice Status Indicator */}
+        {isListening && (
           <div className="voice-status-indicator">
             <div className="pulse-ring"></div>
             <span className="status-text">Listening...</span>
@@ -98,21 +100,19 @@ export const HeroAgent: React.FC<HeroAgentProps> = ({
               </div>
             )}
           </div>
-        ) : (
-          <div className="hero-activate-button-container">
-            <button 
-              className="hero-activate-button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onActivateListening?.();
-              }}
-            >
-              👁️ Be My Eye
-            </button>
-            <p className="hero-button-hint">
-              Click the button above or say "be my eye" to start
-            </p>
-          </div>
+        )}
+
+        {/* Be My Eye Side Button - Fixed Position */}
+        {!isListening && (
+          <button 
+            className="hero-side-button-fixed"
+            onClick={(e) => {
+              e.stopPropagation();
+              onBeMyEye?.();
+            }}
+          >
+            <div className="side-button-text-vertical">Be My Eye</div>
+          </button>
         )}
 
         {/* Scroll Indicator */}
