@@ -20,6 +20,8 @@ export const VoiceNavigation: React.FC<VoiceNavigationProps> = ({
   autoReadOnMount = false,
   showVoiceIndicator = false
 }) => {
+
+  
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [showTooltips, setShowTooltips] = useState(false);
