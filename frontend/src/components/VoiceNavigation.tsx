@@ -25,6 +25,8 @@ export const VoiceNavigation: React.FC<VoiceNavigationProps> = ({
   const location = useLocation();
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
+  const [showTooltips, setShowTooltips] = useState(false);
+  const [idleTimer, setIdleTimer] = useState<NodeJS.Timeout | null>(null);
 
   // 🔊 Audio Queue for TTS
   const audioQueue = useAudioQueue();
@@ -132,6 +134,49 @@ export const VoiceNavigation: React.FC<VoiceNavigationProps> = ({
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [voiceCommandHandler]);
 
+  // 🕐 Idle detection for tooltip display
+  useEffect(() => {
+    const resetIdleTimer = () => {
+      // Clear existing timer
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+      }
+      
+      // Hide tooltips immediately on any activity
+      setShowTooltips(false);
+      
+      // Set new timer for 10 seconds of inactivity
+      const timer = setTimeout(() => {
+        setShowTooltips(true);
+      }, 10000); // 10 seconds of inactivity
+      
+      setIdleTimer(timer);
+    };
+
+    // Activity events to reset timer
+    const activityEvents = [
+      'mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'
+    ];
+
+    // Initialize timer
+    resetIdleTimer();
+
+    // Add event listeners
+    activityEvents.forEach(event => {
+      document.addEventListener(event, resetIdleTimer, true);
+    });
+
+    // Cleanup
+    return () => {
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+      }
+      activityEvents.forEach(event => {
+        document.removeEventListener(event, resetIdleTimer, true);
+      });
+    };
+  }, [idleTimer]);
+
   return (
     <div className="voice-navigation-wrapper">
       {children}
@@ -140,7 +185,13 @@ export const VoiceNavigation: React.FC<VoiceNavigationProps> = ({
       {showVoiceIndicator && isVoiceActive && (
         <div className="voice-indicator">
           <div className="voice-pulse"></div>
-          <span>🗣️ Voice Navigation Active</span>
+          <svg className="voice-indicator-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+          <span>Voice Navigation Active</span>
         </div>
       )}
       
@@ -154,7 +205,26 @@ export const VoiceNavigation: React.FC<VoiceNavigationProps> = ({
         }}
         title="Voice Navigation Help (Ctrl+V)"
       >
-        🗣️ Voice Help
+        <svg 
+          className="voice-help-icon" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2"
+        >
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+        {showTooltips && (
+          <div className="button-tooltip voice-help-tooltip">
+            <div className="tooltip-content">
+              <h4>Voice Help</h4>
+              <p>Get voice navigation commands</p>
+              <small>Ctrl+V or click</small>
+            </div>
+            <div className="tooltip-arrow"></div>
+          </div>
+        )}
       </button>
       
       {/* Read Page Button */}
@@ -170,7 +240,29 @@ export const VoiceNavigation: React.FC<VoiceNavigationProps> = ({
         }}
         title="Read Current Page (Ctrl+R)"
       >
-        📖 Read Page
+        <svg 
+          className="read-page-icon" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2"
+        >
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          <path d="M8 7h8"/>
+          <path d="M8 11h8"/>
+          <path d="M8 15h5"/>
+        </svg>
+        {showTooltips && (
+          <div className="button-tooltip read-page-tooltip">
+            <div className="tooltip-content">
+              <h4>Read Page</h4>
+              <p>Hear current page content</p>
+              <small>Ctrl+R or click</small>
+            </div>
+            <div className="tooltip-arrow"></div>
+          </div>
+        )}
       </button>
       
       <style>{`
@@ -204,36 +296,127 @@ export const VoiceNavigation: React.FC<VoiceNavigationProps> = ({
           animation: pulse 1.5s infinite;
         }
         
+        .voice-indicator-icon {
+          width: 16px;
+          height: 16px;
+          color: white;
+          stroke-width: 2;
+        }
+        
         .voice-help-button,
         .read-page-button {
           position: fixed;
-          bottom: 20px;
-          background: rgba(33, 150, 243, 0.9);
-          color: white;
+          right: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          z-index: 9999;
+          background: linear-gradient(180deg, #06b6d4 0%, #0891b2 50%, #0e7490 100%);
           border: none;
-          padding: 12px 16px;
-          border-radius: 25px;
+          border-top-left-radius: 0.25rem;
+          border-bottom-left-radius: 0.25rem;
+          padding: 1.5rem 0.4rem;
           cursor: pointer;
-          font-size: 14px;
-          font-weight: 500;
-          z-index: 1000;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+          box-shadow: 0 8px 24px rgba(6, 182, 212, 0.4);
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 2.5rem;
           transition: all 0.3s ease;
         }
         
         .voice-help-button {
-          right: 20px;
+          margin-top: -3rem;
         }
         
         .read-page-button {
-          right: 140px;
+          margin-top: 3rem;
         }
         
         .voice-help-button:hover,
         .read-page-button:hover {
-          background: rgba(33, 150, 243, 1);
-          transform: translateY(-2px);
-          box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+          background: linear-gradient(180deg, #06b6d4 0%, #0891b2 40%, #0e7490 80%);
+          box-shadow: 0 12px 32px rgba(6, 182, 212, 0.5);
+          transform: translateY(-50%) translateX(-2px);
+        }
+        
+        .voice-help-button:active,
+        .read-page-button:active {
+          box-shadow: 0 8px 20px rgba(6, 182, 212, 0.4);
+        }
+        
+        .voice-help-icon,
+        .read-page-icon {
+          width: 1.25rem;
+          height: 1.25rem;
+          color: #ffffff;
+          stroke-width: 2.5;
+        }
+        
+        /* Tooltip Styles */
+        .button-tooltip {
+          position: absolute;
+          right: 100%;
+          top: 50%;
+          transform: translateY(-50%);
+          margin-right: 1rem;
+          z-index: 4000;
+          animation: tooltipFadeIn 0.3s ease-out;
+        }
+        
+        .tooltip-content {
+          background: rgba(17, 24, 39, 0.95);
+          color: white;
+          padding: 0.75rem 1rem;
+          border-radius: 0.5rem;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+          backdrop-filter: blur(12px);
+          border: 1px solid rgba(6, 182, 212, 0.3);
+          min-width: 12rem;
+          text-align: left;
+        }
+        
+        .tooltip-content h4 {
+          margin: 0 0 0.25rem 0;
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: #06b6d4;
+        }
+        
+        .tooltip-content p {
+          margin: 0 0 0.25rem 0;
+          font-size: 0.75rem;
+          color: #e2e8f0;
+          line-height: 1.3;
+        }
+        
+        .tooltip-content small {
+          font-size: 0.625rem;
+          color: #94a3b8;
+          font-style: italic;
+        }
+        
+        .tooltip-arrow {
+          position: absolute;
+          right: -6px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 0;
+          height: 0;
+          border-top: 6px solid transparent;
+          border-bottom: 6px solid transparent;
+          border-left: 6px solid rgba(17, 24, 39, 0.95);
+        }
+        
+        @keyframes tooltipFadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(-50%) translateX(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(-50%) translateX(0);
+          }
         }
         
         @keyframes slideIn {
@@ -265,17 +448,11 @@ export const VoiceNavigation: React.FC<VoiceNavigationProps> = ({
         @media (max-width: 768px) {
           .voice-help-button,
           .read-page-button {
-            bottom: 10px;
-            padding: 10px 12px;
-            font-size: 12px;
+            display: none;
           }
           
-          .voice-help-button {
-            right: 10px;
-          }
-          
-          .read-page-button {
-            right: 100px;
+          .button-tooltip {
+            display: none;
           }
           
           .voice-indicator {
