@@ -10,6 +10,8 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env.example
+.env.bak
 
 # Build outputs
 dist/
@@ -30,6 +32,10 @@ Thumbs.db
 # Backend specific
 backend/node_modules/
 backend/.env
+
+# Database files
+database/*.sql
+*.sql
 
 # Frontend specific
 voice-command-ai-agent/node_modules/
