@@ -6,9 +6,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
 import { useVoiceCommandHandler } from '../hooks/useVoiceCommandHandler';
-import { useConversation } from '../hooks/useConversation';
 import { useAudioQueue } from '../hooks/useAudioQueue';
 
 interface VoiceNavigationProps {
@@ -22,11 +20,10 @@ export const VoiceNavigation: React.FC<VoiceNavigationProps> = ({
   autoReadOnMount = false,
   showVoiceIndicator = false
 }) => {
-  const location = useLocation();
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [showTooltips, setShowTooltips] = useState(false);
-  const [idleTimer, setIdleTimer] = useState<NodeJS.Timeout | null>(null);
+  const [idleTimer, setIdleTimer] = useState<number | null>(null);
 
   // 🔊 Audio Queue for TTS
   const audioQueue = useAudioQueue();
