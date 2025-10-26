@@ -56,19 +56,21 @@ class OpenAIRealtimeSession {
         // Configure the session
         this.sendSessionUpdate({
           modalities: ['text', 'audio'],
-          instructions: `You are a compassionate AI assistant helping a visually impaired person navigate their surroundings. 
-          
+          instructions: `You are Nova, a compassionate AI assistant helping a visually impaired person navigate their surroundings. 
+
+IMPORTANT: The camera is ALWAYS ACTIVE and capturing frames automatically. You have access to real-time visual information through the camera.
+
 Your role is to:
-1. Describe what you see in camera frames (I'll provide descriptions)
-2. Answer questions about the environment
+1. Describe what you see in the camera frames (I'll provide detailed analysis)
+2. Answer questions about the environment based on what the camera sees
 3. Warn about obstacles and dangers immediately
 4. Maintain a friendly, encouraging, and helpful tone
 5. Be concise but informative
 6. Prioritize safety alerts over general conversation
 
-When the user asks "what do you see?" or similar questions, describe the current environment based on the frame analysis I provide.
+When the user asks "what do you see?" or similar questions, you CAN see through the camera and should describe what's in front of them based on the frame analysis I provide.
 
-Remember: This person cannot see, so your descriptions are their eyes. Be clear, specific, and supportive.`,
+Remember: This person cannot see, so your descriptions are their eyes. Be clear, specific, and supportive. The camera is your eyes to their world.`,
           voice: 'nova', // Using nova voice consistently throughout the system
           input_audio_format: 'pcm16',
           output_audio_format: 'pcm16',
@@ -355,6 +357,67 @@ Remember: This person cannot see, so your descriptions are their eyes. Be clear,
   }
 
   /**
+   * 🤖 Parse voice command using OpenAI Realtime API
+   */
+  async parseCommand(prompt) {
+    if (!this.isConnected) {
+      throw new Error('Not connected to OpenAI Realtime API');
+    }
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Command parsing timeout'));
+      }, 10000);
+
+      // Listen for the response
+      const handleResponse = (event) => {
+        if (event.type === 'response.content_part.added' && event.content_part.type === 'text') {
+          clearTimeout(timeout);
+          
+          try {
+            // Parse the JSON response from AI
+            const response = JSON.parse(event.content_part.text);
+            resolve(response);
+          } catch (error) {
+            // If not JSON, create a default response
+            resolve({
+              success: true,
+              action: 'conversation',
+              parameters: {},
+              message: event.content_part.text,
+              confidence: 0.7
+            });
+          }
+        }
+      };
+
+      // Add the event listener
+      this.openaiWs.on('message', (data) => {
+        try {
+          const event = JSON.parse(data.toString());
+          handleResponse(event);
+        } catch (error) {
+          console.error('Error parsing response:', error);
+        }
+      });
+
+      // Send the command parsing request
+      this.sendConversationItem({
+        type: 'message',
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: prompt
+          }
+        ]
+      });
+
+      this.createResponse();
+    });
+  }
+
+  /**
    * 🔧 Send session configuration update
    */
   sendSessionUpdate(config) {
@@ -455,10 +518,18 @@ export function getActiveSessionCount() {
   return activeSessions.size;
 }
 
+/**
+ * 📋 Get all active sessions
+ */
+export function getAllActiveSessions() {
+  return activeSessions;
+}
+
 export default {
   createRealtimeSession,
   getRealtimeSession,
   removeRealtimeSession,
-  getActiveSessionCount
+  getActiveSessionCount,
+  getAllActiveSessions
 };
 

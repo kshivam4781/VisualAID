@@ -831,6 +831,49 @@ export function generateVoiceDescription(analysis, isFirstFrame = false) {
 }
 
 /**
+ * 💬 Generate a simple text response using OpenAI
+ * 
+ * @param {string} message - User message
+ * @param {object} options - Response options
+ * @param {string} options.systemPrompt - System prompt for context
+ * @param {number} options.maxTokens - Maximum tokens to generate
+ * @returns {Promise<string>} AI response
+ */
+export async function generateResponse(message, options = {}) {
+  try {
+    const systemPrompt = options.systemPrompt || "You are a helpful AI assistant.";
+    const maxTokens = options.maxTokens || 200;
+
+    console.log(`🤖 Generating OpenAI response for: "${message.substring(0, 50)}..."`);
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: systemPrompt
+        },
+        {
+          role: "user",
+          content: message
+        }
+      ],
+      max_tokens: maxTokens,
+      temperature: 0.7
+    });
+
+    const text = response.choices[0].message.content;
+    console.log(`✅ OpenAI response generated: "${text.substring(0, 100)}..."`);
+    
+    return text;
+
+  } catch (error) {
+    console.error('❌ OpenAI generateResponse error:', error.message);
+    return "I'm having trouble responding right now. Please try again.";
+  }
+}
+
+/**
  * 🧪 Test OpenAI API Connection
  * 
  * Simple test function to verify API key is working
@@ -867,10 +910,175 @@ export async function testOpenAIConnection() {
   }
 }
 
+/**
+ * 🎯 ENHANCED VOICE DESCRIPTION: Generate detailed description for on-demand analysis
+ * 
+ * This function creates a comprehensive, conversational description specifically
+ * for when users ask "what is in front of me" or similar questions.
+ * 
+ * @param {object} analysis - The analysis results from analyzeFrame
+ * @param {boolean} isOnDemand - Whether this is an on-demand request
+ * @returns {string} Enhanced natural language description
+ */
+export function generateEnhancedVoiceDescription(analysis, isOnDemand = false) {
+  let description = "";
+
+  // Enhanced scene description for on-demand requests
+  if (analysis.sceneDescription) {
+    description += analysis.sceneDescription + ". ";
+  }
+  
+  // 🎯 FOCUSED OBJECT: Enhanced analysis for what user is looking at
+  if (analysis.focusedObject && analysis.focusedObject.detected) {
+    const focused = analysis.focusedObject;
+    
+    description += `You're looking at ${focused.name || 'an object'}. `;
+    
+    if (focused.text && focused.text.trim() !== '') {
+      // Read all visible text
+      description += `I can read the text on it: "${focused.text}". `;
+    }
+    
+    if (focused.description) {
+      description += `${focused.description}. `;
+    }
+    
+    if (focused.context) {
+      description += `${focused.context}. `;
+    }
+    
+    // Enhanced person analysis
+    if (focused.type === 'person' && focused.coveragePercentage >= 50) {
+      if (focused.facialExpression) {
+        description += `The person appears ${focused.facialExpression}. `;
+      }
+      if (focused.emotion) {
+        description += `They seem ${focused.emotion}. `;
+      }
+      if (focused.bodyLanguage) {
+        description += `Their posture suggests they are ${focused.bodyLanguage}. `;
+      }
+      if (focused.actions) {
+        description += `They appear to be ${focused.actions}. `;
+      }
+      if (focused.eyeContact) {
+        description += `They are ${focused.eyeContact}. `;
+      }
+    }
+  }
+  
+  // 📖 TEXT READING: Enhanced text analysis
+  if (analysis.textContent && analysis.textContent.length > 0) {
+    description += "I can see text that says: ";
+    analysis.textContent.forEach((text, index) => {
+      description += `"${text}"`;
+      if (index < analysis.textContent.length - 1) {
+        description += ", ";
+      }
+    });
+    description += ". ";
+  }
+  
+  // 🏷️ OBJECTS: Enhanced object description
+  if (analysis.relevantObjects && analysis.relevantObjects.length > 0) {
+    description += "I can also see: ";
+    analysis.relevantObjects.forEach((obj, index) => {
+      description += `${obj.name}`;
+      if (obj.distance) {
+        description += ` at ${obj.distance}`;
+      }
+      if (obj.relevance) {
+        description += ` (${obj.relevance})`;
+      }
+      if (index < analysis.relevantObjects.length - 1) {
+        description += ", ";
+      }
+    });
+    description += ". ";
+  }
+  
+  // ⚠️ SAFETY: Enhanced safety information
+  if (analysis.obstacles && analysis.obstacles.length > 0) {
+    const criticalObstacles = analysis.obstacles.filter(obs => obs.urgency === 'critical' || obs.urgency === 'high');
+    const otherObstacles = analysis.obstacles.filter(obs => obs.urgency !== 'critical' && obs.urgency !== 'high');
+    
+    if (criticalObstacles.length > 0) {
+      description += "⚠️ IMPORTANT: ";
+      criticalObstacles.forEach((obstacle, index) => {
+        description += `${obstacle.name} is ${obstacle.distance} to your ${obstacle.position}`;
+        if (obstacle.action) {
+          description += ` - ${obstacle.action}`;
+        }
+        if (index < criticalObstacles.length - 1) {
+          description += ", ";
+        }
+      });
+      description += ". ";
+    }
+    
+    if (otherObstacles.length > 0) {
+      description += "I also notice: ";
+      otherObstacles.forEach((obstacle, index) => {
+        description += `${obstacle.name} at ${obstacle.distance}`;
+        if (index < otherObstacles.length - 1) {
+          description += ", ";
+        }
+      });
+      description += ". ";
+    }
+  }
+  
+  // 🚶 MOVEMENT: Enhanced movement analysis
+  if (analysis.movingObjects && analysis.movingObjects.length > 0) {
+    const approachingObjects = analysis.movingObjects.filter(obj => 
+      obj.isApproaching === true || obj.direction?.includes('towards') || obj.direction?.includes('approaching')
+    );
+    
+    if (approachingObjects.length > 0) {
+      description += "⚠️ MOVEMENT ALERT: ";
+      approachingObjects.forEach((obj, index) => {
+        description += `${obj.name} is moving towards you`;
+        if (obj.distance) {
+          description += ` from ${obj.distance}`;
+        }
+        if (obj.speed) {
+          description += ` at ${obj.speed} speed`;
+        }
+        if (obj.alert) {
+          description += ` - ${obj.alert}`;
+        }
+        if (index < approachingObjects.length - 1) {
+          description += ", ";
+        }
+      });
+      description += ". ";
+    }
+  }
+  
+  // 🧭 NAVIGATION: Enhanced navigation guidance
+  if (analysis.navigationGuidance && analysis.navigationGuidance.trim() !== '') {
+    description += `Navigation: ${analysis.navigationGuidance}. `;
+  }
+  
+  // 🎯 ENVIRONMENT: Enhanced environment context
+  if (analysis.environmentType) {
+    description += `You're in a ${analysis.environmentType} environment. `;
+  }
+  
+  // 🎤 CONVERSATIONAL: Add helpful context
+  if (isOnDemand) {
+    description += "Is there anything specific you'd like me to focus on or explain further?";
+  }
+  
+  return description.trim();
+}
+
 export default {
   analyzeFrame,
   detectCriticalObstacles,
   generateVoiceDescription,
+  generateEnhancedVoiceDescription,
+  generateResponse,
   testOpenAIConnection
 };
 

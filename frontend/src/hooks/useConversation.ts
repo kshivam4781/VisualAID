@@ -6,6 +6,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Socket } from 'socket.io-client';
+// Voice command parser removed - Nova handles all voice input naturally
+import { useRealtimeCommandParser } from './useRealtimeCommandParser';
 
 interface ConversationState {
   isActive: boolean;
@@ -53,6 +55,140 @@ export function useConversation({ socket, onVisionActivated, onVisionDeactivated
     visionModeActive: false
   });
 
+  // Helper function to detect vision-related commands
+  const isVisionCommand = useCallback((message: string): boolean => {
+    const lowerMessage = message.toLowerCase();
+    const visionKeywords = [
+      'see', 'look', 'what', 'show', 'describe', 'tell me', 'camera', 'front', 'ahead',
+      'around', 'surrounding', 'environment', 'scene', 'view', 'picture', 'image',
+      'can you see', 'do you see', 'what do you see', 'what is', 'what\'s in front',
+      'describe what', 'tell me what', 'show me what'
+    ];
+    
+    return visionKeywords.some(keyword => lowerMessage.includes(keyword));
+  }, []);
+
+  // Helper function to process regular messages (non-command)
+  const processRegularMessage = useCallback((message: string) => {
+    console.log('💬 Processing regular message:', message);
+    
+    // Check if this is a navigation command - if so, skip LLM processing
+    const lowerMessage = message.toLowerCase();
+    const isNavigationCommand = lowerMessage.includes('navigate') || 
+                               lowerMessage.includes('go to') || 
+                               lowerMessage.includes('read') ||
+                               lowerMessage.includes('about page') ||
+                               lowerMessage.includes('home page') ||
+                               lowerMessage.includes('use case page');
+    
+    if (isNavigationCommand) {
+      console.log('🚫 Navigation command detected - skipping LLM processing:', message);
+      return; // Don't process navigation commands with LLM
+    }
+    
+    // Check if this is a vision-related command
+    const isVision = isVisionCommand(message);
+    
+    // Deduplicate: check if we already have this exact message in history
+    setState(currentState => {
+      // Handle vision commands with current state (not stale state)
+      if (isVision) {
+        console.log('👁️ Vision command detected:', message);
+        console.log('   Current sessionId:', currentState.sessionId);
+        console.log('   Socket connected:', socketRef.current?.connected);
+        
+        // Trigger immediate frame capture for vision commands
+        const currentSocket = socketRef.current;
+        if (currentSocket && currentSocket.connected && currentState.sessionId) {
+          console.log('📸 Triggering immediate frame capture for vision command');
+          console.log('   Sending sessionId:', currentState.sessionId);
+          currentSocket.emit('frame:capture_immediate', {
+            sessionId: currentState.sessionId,
+            reason: 'vision_command',
+            userMessage: message
+          });
+          
+          // Don't send the regular message - just return current state
+          console.log('✅ Immediate capture triggered, not sending regular message');
+          return { ...currentState, transcript: '' };
+        } else {
+          console.warn('⚠️ Cannot trigger immediate capture - missing sessionId or socket not connected');
+          console.warn('   sessionId:', currentState.sessionId);
+          console.warn('   socket connected:', currentSocket?.connected);
+        }
+      }
+      const recentMessages = currentState.conversationHistory.slice(-2);
+      const isDuplicate = recentMessages.some(msg => 
+        msg.role === 'user' && 
+        msg.content.toLowerCase() === message.toLowerCase() &&
+        (Date.now() - new Date(msg.timestamp).getTime()) < 3000 // Within 3 seconds
+      );
+      
+      if (isDuplicate) {
+        console.warn('⚠️ Duplicate message detected, skipping:', message);
+        return { ...currentState, transcript: '' };
+      }
+      
+      // Check if socket and session are available before sending
+      const currentSocket = socketRef.current;
+      console.log('🔍 Checking if ready to send message:', {
+        hasSocket: !!currentSocket,
+        socketConnected: currentSocket?.connected,
+        hasSessionId: !!currentState.sessionId,
+        isActive: currentState.isActive,
+        sessionId: currentState.sessionId?.substring(0, 10)
+      });
+      
+      if (currentSocket && currentSocket.connected && currentState.sessionId && currentState.isActive) {
+        // Prevent duplicate messages (same message sent within 2 seconds)
+        const now = Date.now();
+        const isDuplicate = message === lastSentMessageRef.current && 
+                            (now - lastMessageTimeRef.current) < 2000;
+        
+        if (isDuplicate) {
+          console.log('⚠️ Duplicate message detected, skipping:', message);
+          return currentState;
+        }
+        
+        lastSentMessageRef.current = message;
+        lastMessageTimeRef.current = now;
+        
+        console.log('📤 Sending transcribed message:', message);
+        currentSocket.emit('conversation:message', {
+          sessionId: currentState.sessionId,
+          message: message,
+          context: {
+            isVisionCommand: isVision,
+            requiresImmediateAnalysis: isVision
+          }
+        });
+        console.log('✅ Message sent to backend');
+        
+        // Add to history
+        return {
+          ...currentState,
+          conversationHistory: [
+            ...currentState.conversationHistory,
+            {
+              role: 'user',
+              content: message,
+              timestamp: new Date().toISOString()
+            }
+          ],
+          transcript: ''
+        };
+      } else {
+        console.warn('⚠️ Cannot send message: session not ready', {
+          hasSocket: !!currentSocket,
+          socketConnected: currentSocket?.connected,
+          hasSessionId: !!currentState.sessionId,
+          isActive: currentState.isActive
+        });
+        return currentState;
+      }
+    });
+  }, [isVisionCommand]);
+
   const recognitionRef = useRef<any>(null);
   const audioQueueRef = useRef<HTMLAudioElement[]>([]);
   const isPlayingRef = useRef(false);
@@ -98,12 +234,7 @@ export function useConversation({ socket, onVisionActivated, onVisionDeactivated
       });
 
       recognitionRef.current.onresult = (event: any) => {
-        console.log('🎤 Speech recognition result:', {
-          resultIndex: event.resultIndex,
-          resultsLength: event.results.length,
-          isFinal: event.results[event.results.length - 1]?.isFinal
-        });
-        
+        // Reduced logging - only log final results
         let interimTranscript = '';
         let finalTranscript = '';
 
@@ -114,7 +245,10 @@ export function useConversation({ socket, onVisionActivated, onVisionDeactivated
             console.log('✅ Final transcript:', transcript);
           } else {
             interimTranscript += transcript;
-            console.log('⏳ Interim transcript:', transcript);
+            // Only log interim results if they're substantial
+            if (transcript.length > 3) {
+              console.log('⏳ Interim transcript:', transcript);
+            }
           }
         }
 
@@ -134,75 +268,10 @@ export function useConversation({ socket, onVisionActivated, onVisionDeactivated
             return;
           }
           
-          // Deduplicate: check if we already have this exact message in history
-          setState(currentState => {
-            const recentMessages = currentState.conversationHistory.slice(-2);
-            const isDuplicate = recentMessages.some(msg => 
-              msg.role === 'user' && 
-              msg.content.toLowerCase() === trimmedMessage.toLowerCase() &&
-              (Date.now() - new Date(msg.timestamp).getTime()) < 3000 // Within 3 seconds
-            );
-            
-            if (isDuplicate) {
-              console.warn('⚠️ Duplicate message detected, skipping:', trimmedMessage);
-              return { ...currentState, transcript: '' };
-            }
-            
-            // Check if socket and session are available before sending
-            const currentSocket = socketRef.current;
-            console.log('🔍 Checking if ready to send message:', {
-              hasSocket: !!currentSocket,
-              socketConnected: currentSocket?.connected,
-              hasSessionId: !!currentState.sessionId,
-              isActive: currentState.isActive,
-              sessionId: currentState.sessionId?.substring(0, 10)
-            });
-            
-            if (currentSocket && currentSocket.connected && currentState.sessionId && currentState.isActive) {
-              // Prevent duplicate messages (same message sent within 2 seconds)
-              const now = Date.now();
-              const isDuplicate = trimmedMessage === lastSentMessageRef.current && 
-                                  (now - lastMessageTimeRef.current) < 2000;
-              
-              if (isDuplicate) {
-                console.log('⚠️ Duplicate message detected, skipping:', trimmedMessage);
-                return currentState;
-              }
-              
-              lastSentMessageRef.current = trimmedMessage;
-              lastMessageTimeRef.current = now;
-              
-              console.log('📤 Sending transcribed message:', trimmedMessage);
-              currentSocket.emit('conversation:message', {
-                sessionId: currentState.sessionId,
-                message: trimmedMessage,
-                context: {}
-              });
-              console.log('✅ Message sent to backend');
-              
-              // Add to history
-              return {
-                ...currentState,
-                conversationHistory: [
-                  ...currentState.conversationHistory,
-                  {
-                    role: 'user',
-                    content: trimmedMessage,
-                    timestamp: new Date().toISOString()
-                  }
-                ],
-                transcript: ''
-              };
-            } else {
-              console.warn('⚠️ Cannot send message: session not ready', {
-                hasSocket: !!currentSocket,
-                socketConnected: currentSocket?.connected,
-                hasSessionId: !!currentState.sessionId,
-                isActive: currentState.isActive
-              });
-              return currentState;
-            }
-          });
+          // Nova handles all voice input naturally - no command parsing needed
+          
+          // If not a voice command, process as regular message
+          processRegularMessage(trimmedMessage);
         }
       };
 
@@ -635,12 +704,25 @@ Please analyze the differences and provide a brief, focused description of what 
       
       frameAnalysisTimeoutsRef.current.set(data.frameNumber, timeout);
     };
+
+    const handleFrameAnalysisError = (data: any) => {
+      console.error(`❌ [FRAME ANALYSIS ERROR] Frame ${data.frameNumber} analysis failed:`, data.error);
+      
+      // Clear the timeout since we got an error response
+      const timeout = frameAnalysisTimeoutsRef.current.get(data.frameNumber);
+      if (timeout) {
+        clearTimeout(timeout);
+        frameAnalysisTimeoutsRef.current.delete(data.frameNumber);
+      }
+    };
     
     currentSocket.on('frame:captured', handleFrameCaptured);
+    currentSocket.on('frame:analysis_error', handleFrameAnalysisError);
     
     return () => {
       currentSocket.off('frame:analyzed', handleFrameAnalyzed);
       currentSocket.off('frame:captured', handleFrameCaptured);
+      currentSocket.off('frame:analysis_error', handleFrameAnalysisError);
       
       // Clear all timeouts
       frameAnalysisTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
@@ -797,12 +879,87 @@ Please analyze the differences and provide a brief, focused description of what 
       }));
     };
 
+    const handleVoiceCommandResponse = (data: any) => {
+      console.log('🎤 Voice command response received:', {
+        command: data.command,
+        success: data.success,
+        message: data.message?.substring(0, 50)
+      });
+      
+      if (data.success && data.message) {
+        // Add command response to conversation history
+        setState(prev => ({
+          ...prev,
+          conversationHistory: [
+            ...prev.conversationHistory,
+            {
+              role: 'assistant',
+              content: data.message,
+              timestamp: new Date().toISOString()
+            }
+          ]
+        }));
+        
+        // Handle vision mode changes
+        if (data.command === 'activate_vision') {
+          console.log('👁️ [VOICE COMMAND] Vision mode activated');
+          setState(prev => ({ ...prev, visionModeActive: true }));
+          onVisionActivated?.();
+        } else if (data.command === 'deactivate_vision') {
+          console.log('👁️ [VOICE COMMAND] Vision mode deactivated');
+          setState(prev => ({ ...prev, visionModeActive: false }));
+          onVisionDeactivated?.();
+        }
+        
+        // Play audio response if available
+        if (data.audio) {
+          playAudio(data.audio, false);
+        }
+      }
+    };
+
+    const handleRealtimeCommandExecuted = (data: any) => {
+      console.log('🎯 [REALTIME AI] Command executed:', {
+        action: data.action,
+        success: data.success,
+        message: data.message?.substring(0, 50)
+      });
+      
+      if (data.success && data.message) {
+        // Add command execution response to conversation history
+        setState(prev => ({
+          ...prev,
+          conversationHistory: [
+            ...prev.conversationHistory,
+            {
+              role: 'assistant',
+              content: data.message,
+              timestamp: new Date().toISOString()
+            }
+          ]
+        }));
+        
+        // Handle vision mode changes
+        if (data.action === 'activate_vision') {
+          console.log('👁️ [REALTIME AI] Vision mode activated');
+          setState(prev => ({ ...prev, visionModeActive: true }));
+          onVisionActivated?.();
+        } else if (data.action === 'deactivate_vision') {
+          console.log('👁️ [REALTIME AI] Vision mode deactivated');
+          setState(prev => ({ ...prev, visionModeActive: false }));
+          onVisionDeactivated?.();
+        }
+      }
+    };
+
     socket.on('conversation:started', handleConversationStarted);
     socket.on('conversation:response', handleConversationResponse);
     socket.on('conversation:vision_activated', handleVisionActivated);
     socket.on('conversation:vision_deactivated', handleVisionDeactivated);
     socket.on('conversation:error', handleConversationError);
     socket.on('conversation:ended', handleConversationEnded);
+    socket.on('voice:command_response', handleVoiceCommandResponse);
+    socket.on('realtime:command_executed', handleRealtimeCommandExecuted);
 
     return () => {
       socket.off('conversation:started', handleConversationStarted);
@@ -811,6 +968,8 @@ Please analyze the differences and provide a brief, focused description of what 
       socket.off('conversation:vision_deactivated', handleVisionDeactivated);
       socket.off('conversation:error', handleConversationError);
       socket.off('conversation:ended', handleConversationEnded);
+      socket.off('voice:command_response', handleVoiceCommandResponse);
+      socket.off('realtime:command_executed', handleRealtimeCommandExecuted);
     };
   }, [socket, onVisionActivated, onVisionDeactivated]);
 

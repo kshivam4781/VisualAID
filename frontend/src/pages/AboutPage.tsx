@@ -1,12 +1,51 @@
 import React, { useState, useEffect } from 'react';
 import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
+import { useVoiceCommandHandler } from '../hooks/useVoiceCommandHandler';
+import { useConversation } from '../hooks/useConversation';
+import { useAudioQueue } from '../hooks/useAudioQueue';
 import './AboutPage.css';
 
 export const AboutPage: React.FC = () => {
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
+
+  // 🔊 Audio Queue for TTS
+  const audioQueue = useAudioQueue();
+  
+  // Speak function using queue
+  const speak = React.useCallback((text: string, interrupt: boolean = false) => {
+    audioQueue.speak(text, interrupt ? 'urgent' : 'normal');
+  }, [audioQueue]);
+
+  // 🤖 Mock conversation state for voice commands
+  const mockConversation = {
+    state: {
+      isActive: true,
+      sessionId: 'about-page-session',
+      isListening: false,
+      isSpeaking: false,
+      currentMessage: null,
+      transcript: '',
+      conversationHistory: [],
+      error: null,
+      visionModeActive: false
+    }
+  };
+
+  // 🎤 Voice Command Handler for Navigation
+  const voiceCommandHandler = useVoiceCommandHandler({
+    conversation: mockConversation as any,
+    speak: speak,
+    onNavigation: (path: string) => {
+      console.log('🗣️ Navigation triggered from About page:', path);
+      // Navigation will be handled by React Router
+    },
+    onPageRead: (content: any) => {
+      console.log('🗣️ About page content read:', content.title);
+    }
+  });
 
   const heroTexts = [
     "The world is beautiful, and we show it to everyone.",
@@ -28,6 +67,19 @@ export const AboutPage: React.FC = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  // 🎤 Auto-read page content when component mounts - DISABLED to prevent conflicts
+  // useEffect(() => {
+  //   // Auto-read the page content after a short delay
+  //   const timer = setTimeout(() => {
+  //     const currentPageContent = voiceCommandHandler.getCurrentPageContent();
+  //     if (currentPageContent) {
+  //       speak(`Welcome to the ${currentPageContent.title}. ${currentPageContent.description}`);
+  //     }
+  //   }, 2000); // Wait 2 seconds before auto-reading
+
+  //   return () => clearTimeout(timer);
+  // }, [voiceCommandHandler, speak]);
 
   const handleNewsletterSubmit = (e: React.FormEvent) => {
     e.preventDefault();

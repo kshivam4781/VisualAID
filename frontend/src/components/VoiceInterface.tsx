@@ -125,6 +125,7 @@ export const VoiceInterface: React.FC = () => {
     state: frameCaptureState,
     startCapture,
     stopCapture: stopFrameCapture,
+    captureSingleFrame,
   } =   useFrameCapture({
     intervalMs: 15000, // 15 seconds - reduced frequency to prevent database overload
     quality: 0.92, // High quality for better AI accuracy (images stored locally, not in DB)
@@ -152,6 +153,82 @@ export const VoiceInterface: React.FC = () => {
       console.error('Frame capture error:', error);
     },
   });
+
+  // On-demand frame capture function
+  const captureFrameNow = useCallback(async () => {
+    if (!isWebSocketConnected || !sessionState.isActive || !sessionState.sessionId) {
+      console.warn('Cannot capture frame: WebSocket not connected or session not active');
+      return;
+    }
+
+    try {
+      console.log('📸 Capturing frame on-demand...');
+      
+      // Capture a single frame immediately
+      const frameData = captureSingleFrame();
+      if (!frameData) {
+        console.error('Failed to capture frame');
+        return;
+      }
+
+      // Create metadata for on-demand capture
+      const metadata = {
+        captureCount: frameCaptureState.frameCount + 1,
+        timestamp: Date.now(),
+        size: frameData.length,
+        isOnDemand: true,
+        requestType: 'detailed_analysis'
+      };
+
+      // Send to backend using the new on-demand endpoint
+      const response = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('On-demand frame capture timeout'));
+        }, 30000); // 30 second timeout
+
+        const handleResponse = (data: any) => {
+          clearTimeout(timeout);
+          websocketService.getSocket()?.off('frame:captured', handleResponse);
+          resolve(data);
+        };
+
+        websocketService.getSocket()?.on('frame:captured', handleResponse);
+        
+        // Send the on-demand frame capture request
+        websocketService.getSocket()?.emit('frame:capture_now', {
+          sessionId: sessionState.sessionId,
+          userId: null, // Add user ID if available
+          frameData: frameData,
+          timestamp: metadata.timestamp,
+          metadata: metadata
+        }, (response: any) => {
+          if (response.success) {
+            console.log('✅ On-demand frame captured successfully');
+          } else {
+            console.error('❌ On-demand frame capture failed:', response.message);
+          }
+        });
+      });
+
+      console.log('✅ On-demand frame capture completed');
+      
+    } catch (error) {
+      console.error('❌ Error in on-demand frame capture:', error);
+    }
+  }, [isWebSocketConnected, sessionState.isActive, sessionState.sessionId, captureSingleFrame, frameCaptureState.frameCount, websocketService]);
+
+  // Expose captureFrameNow globally for voice commands
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).captureFrameNow = captureFrameNow;
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete (window as any).captureFrameNow;
+      }
+    };
+  }, [captureFrameNow]);
 
   // Connect to WebSocket on component mount
   useEffect(() => {

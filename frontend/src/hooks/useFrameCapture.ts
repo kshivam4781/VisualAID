@@ -118,17 +118,15 @@ export const useFrameCapture = (options: FrameCaptureOptions = {}) => {
       }
       const avgBrightness = totalBrightness / (pixels.length / 4) / 3;
       
+      // Reduced logging - only warn about significant issues
       if (avgBrightness < 10) {
-        console.warn('⚠️ Frame appears to be blank/black (brightness:', avgBrightness.toFixed(1), ') - Too dark!');
+        console.warn('⚠️ Frame too dark (brightness:', avgBrightness.toFixed(1), ')');
       } else if (avgBrightness > 245) {
-        console.warn('⚠️ Frame appears to be blank/white (brightness:', avgBrightness.toFixed(1), ') - Overexposed!');
+        console.warn('⚠️ Frame overexposed (brightness:', avgBrightness.toFixed(1), ')');
       } else if (avgBrightness < 30) {
-        console.warn('⚠️ Frame is very dark (brightness:', avgBrightness.toFixed(1), ') - May affect AI analysis');
-      } else if (avgBrightness < 50) {
-        console.log('ℹ️ Frame is somewhat dark (brightness:', avgBrightness.toFixed(1), ') but usable');
-      } else {
-        console.log('✅ Frame has good lighting (brightness:', avgBrightness.toFixed(1), ')');
+        console.warn('⚠️ Frame very dark (brightness:', avgBrightness.toFixed(1), ')');
       }
+      // Removed normal brightness logging to reduce noise
 
       // Convert to base64
       const mimeType = opts.format === 'jpeg' ? 'image/jpeg' : 'image/png';
@@ -161,7 +159,10 @@ export const useFrameCapture = (options: FrameCaptureOptions = {}) => {
       // Call callback
       opts.onFrameCaptured(base64Data, metadata);
 
-      console.log(`Frame captured: ${metadata.captureCount}, Size: ${(size / 1024).toFixed(2)}KB`);
+      // Reduced logging - only log every 5th frame or important frames
+      if (metadata.captureCount % 5 === 0 || size > 100000) {
+        console.log(`Frame captured: ${metadata.captureCount}, Size: ${(size / 1024).toFixed(2)}KB`);
+      }
 
       return base64Data;
 
@@ -254,11 +255,45 @@ export const useFrameCapture = (options: FrameCaptureOptions = {}) => {
     };
   }, [stopCapture]);
 
+  // Handle immediate frame capture request
+  const captureImmediateFrame = useCallback((socket: any, sessionId: string, reason: string) => {
+    console.log(`📸 IMMEDIATE capture requested - Reason: ${reason}`);
+    
+    if (!videoElementRef.current || !canvasRef.current) {
+      console.warn('Video element or canvas not ready for immediate capture');
+      return;
+    }
+
+    const frameData = captureFrame();
+    if (frameData) {
+      const metadata = {
+        captureCount: captureCountRef.current,
+        timestamp: Date.now(),
+        width: canvasRef.current.width,
+        height: canvasRef.current.height,
+        format: opts.format,
+        size: Math.round((frameData.length * 3) / 4),
+        reason: reason,
+        priority: 'high'
+      };
+
+      console.log(`📤 Sending immediate frame to backend...`);
+      socket.emit('frame:capture_now', {
+        sessionId,
+        frameData,
+        metadata,
+        timestamp: Date.now(),
+        reason: reason
+      });
+    }
+  }, [captureFrame, opts.format]);
+
   return {
     state,
     startCapture,
     stopCapture,
     captureSingleFrame,
+    captureImmediateFrame,
     clearError,
   };
 };

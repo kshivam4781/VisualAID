@@ -2,16 +2,16 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Header } from '../components/Header';
 import { Footer } from '../components/Footer';
 import { HeroAgent } from '../components/HeroAgent';
-import { useVoiceRecognition } from '../hooks/useVoiceRecognition';
+// useVoiceRecognition removed - using conversation system instead
 import { useAudioQueue } from '../hooks/useAudioQueue';
 import { useConversation } from '../hooks/useConversation';
 import { useCameraAccess } from '../hooks/useCameraAccess';
 import { useMenuNavigation } from '../hooks/useMenuNavigation';
 import { useFrameCapture } from '../hooks/useFrameCapture';
 import { useSessionManagement } from '../hooks/useSessionManagement';
+import { useVoiceCommandHandler } from '../hooks/useVoiceCommandHandler';
 import { websocketService } from '../services/websocket';
-import { parseMenuCommand, getMenuPrompt } from '../utils/menuPrompts';
-import { getGreeting } from '../utils/greetings';
+// Old menu system removed - Nova handles navigation
 import './HomePage.css';
 
 export const HomePage: React.FC = () => {
@@ -19,10 +19,10 @@ export const HomePage: React.FC = () => {
   const [hasStarted, setHasStarted] = useState(false);
   const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
   const [socket, setSocket] = useState<any>(null);
-  const lastCommandRef = useRef<string | null>(null);
+  // lastCommandRef removed - no longer needed
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const { voiceState, toggleListening } = useVoiceRecognition();
+  // Old voice recognition removed - using conversation system
   
   // 🔊 Centralized Audio Queue - Prevents overlapping speech!
   const audioQueue = useAudioQueue();
@@ -175,6 +175,20 @@ export const HomePage: React.FC = () => {
     audioQueue.speak(text, interrupt ? 'urgent' : 'normal');
   }, []); // audioQueue methods are stable, don't need in deps
 
+  // 🎤 Voice Command Handler for Navigation
+  const voiceCommandHandler = useVoiceCommandHandler({
+    conversation: conversation,
+    speak: speak,
+    onNavigation: (path: string) => {
+      console.log('🗣️ Navigation triggered:', path);
+      setHeroMessage(`Navigating to ${path}...`);
+    },
+    onPageRead: (content: any) => {
+      console.log('🗣️ Page content read:', content.title);
+      setHeroMessage(`Reading ${content.title} content...`);
+    }
+  });
+
   const { menuContext, navigateToMenu } = useMenuNavigation();
 
   const { cameraState, startCamera, stopCamera, attachToVideo } = useCameraAccess({
@@ -220,6 +234,7 @@ export const HomePage: React.FC = () => {
     state: frameCaptureState,
     startCapture,
     stopCapture: stopFrameCapture,
+    captureImmediateFrame,
   } = useFrameCapture({
     intervalMs: 15000, // 15 seconds
     quality: 0.7,
@@ -304,6 +319,44 @@ export const HomePage: React.FC = () => {
       console.log(`ℹ️ [HomePage] Conversation mode active - frame audio handled by Nova`);
     }
   }, [sessionState.isActive, sessionState.sessionId, conversation.state.isActive, audioQueue]);
+
+  // 📸 Listen for immediate frame capture requests
+  useEffect(() => {
+    if (!socket || !sessionState.isActive) {
+      return;
+    }
+
+    const handleImmediateCaptureRequest = (data: any) => {
+      console.log(`📸 [HomePage] Received immediate frame capture request:`, {
+        sessionId: data.sessionId?.substring(0, 8),
+        reason: data.reason,
+        priority: data.priority
+      });
+
+      if (data.sessionId === sessionState.sessionId && videoRef.current) {
+        console.log(`📸 [HomePage] Triggering immediate frame capture...`);
+        captureImmediateFrame(socket, sessionState.sessionId, data.reason);
+      }
+    };
+
+    const handleImmediateAck = (data: any) => {
+      console.log(`📸 [HomePage] Received immediate capture acknowledgment:`, {
+        message: data.message,
+        reason: data.reason
+      });
+      // Could show a visual indicator here if needed
+    };
+
+    console.log(`📸 [HomePage] Setting up immediate frame capture listeners`);
+    socket.on('frame:capture_request', handleImmediateCaptureRequest);
+    socket.on('frame:immediate_ack', handleImmediateAck);
+
+    return () => {
+      console.log(`📸 [HomePage] Removing immediate frame capture listeners`);
+      socket.off('frame:capture_request', handleImmediateCaptureRequest);
+      socket.off('frame:immediate_ack', handleImmediateAck);
+    };
+  }, [socket, sessionState.isActive, sessionState.sessionId, captureImmediateFrame]);
 
   // Attach camera stream to video element
   useEffect(() => {
@@ -482,73 +535,7 @@ export const HomePage: React.FC = () => {
     }
   };
 
-  // Handle voice commands (OLD SYSTEM - disabled when conversation is active)
-  useEffect(() => {
-    // Skip if conversation mode is active (Nova handles everything)
-    if (conversation.state.isActive) {
-      console.log('ℹ️ Skipping old voice command handler - conversation mode active');
-      return;
-    }
-    
-    if (!hasStarted || !voiceState.lastCommand) return;
-    
-    const currentCommand = voiceState.lastCommand.command;
-    
-    if (currentCommand === lastCommandRef.current) return;
-    lastCommandRef.current = currentCommand;
-    
-    console.log('Processing OLD voice command:', currentCommand);
-    
-    const menuAction = parseMenuCommand(currentCommand, menuContext.currentMenu);
-    
-    if (menuAction.action === 'activate_vision') {
-      const activatedGreeting = getGreeting('activated');
-      setHeroMessage(activatedGreeting.text);
-      console.log('🔊 Speaking activation message:', activatedGreeting.text);
-      speak(activatedGreeting.text, true);
-      navigateToMenu('vision_mode');
-      
-      if (!cameraState.isActive && !cameraState.isLoading) {
-        console.log('Starting camera for vision mode...');
-        startCamera().then(success => {
-          if (success) {
-            console.log('Camera started successfully');
-            setHeroMessage('Vision mode active. Camera is watching.');
-          } else {
-            console.error('Failed to start camera');
-            setHeroMessage('Failed to start camera. Check permissions.');
-          }
-        }).catch(error => {
-          console.error('Camera start error:', error);
-          setHeroMessage('Error starting camera.');
-        });
-      }
-    } else if (menuAction.action === 'deactivate_vision') {
-      const deactivatedGreeting = getGreeting('deactivated');
-      setHeroMessage(deactivatedGreeting.text);
-      console.log('🔊 Speaking deactivation message:', deactivatedGreeting.text);
-      speak(deactivatedGreeting.text, true);
-      navigateToMenu('main_menu');
-      
-      if (cameraState.isActive) {
-        console.log('Stopping camera...');
-        stopCamera();
-      }
-      
-      setTimeout(() => {
-        const mainMenuPrompt = getMenuPrompt('main_menu');
-        setHeroMessage(mainMenuPrompt.text);
-        speak(mainMenuPrompt.text, false);
-      }, 2000);
-    } else if (menuAction.action === 'help') {
-      navigateToMenu('help');
-      const helpPrompt = getMenuPrompt('help');
-      setHeroMessage(helpPrompt.text);
-      speak(helpPrompt.text, false);
-    } else {
-      setHeroMessage(`You said: "${currentCommand}". Try saying 'help' to see what I can do.`);
-    }
-  }, [voiceState.lastCommand, hasStarted, menuContext.currentMenu, cameraState.isActive, cameraState.isLoading, speak, navigateToMenu, startCamera, stopCamera]);
+  // Old voice command system removed - Nova handles all voice commands now
 
   // Update message based on conversation state
   useEffect(() => {
@@ -556,10 +543,46 @@ export const HomePage: React.FC = () => {
       setHeroMessage(conversation.state.currentMessage);
     } else if (conversation.state.transcript) {
       setHeroMessage(`You: "${conversation.state.transcript}"`);
-    } else if (voiceState.transcript) {
-      setHeroMessage(`Hearing: "${voiceState.transcript}"`);
     }
-  }, [conversation.state.currentMessage, conversation.state.transcript, voiceState.transcript]);
+  }, [conversation.state.currentMessage, conversation.state.transcript]);
+
+  // 🎤 Process voice commands for navigation (only on final transcripts)
+  useEffect(() => {
+    // Only process when we have a final transcript (not interim)
+    if (conversation.state.transcript && conversation.state.isActive && !conversation.state.isListening) {
+      const transcript = conversation.state.transcript.trim();
+      
+      // Only process if it's a substantial transcript and looks like a command
+      if (transcript.length > 3 && (
+        transcript.toLowerCase().includes('go to') ||
+        transcript.toLowerCase().includes('navigate') ||
+        transcript.toLowerCase().includes('read') ||
+        transcript.toLowerCase().includes('about') ||
+        transcript.toLowerCase().includes('home') ||
+        transcript.toLowerCase().includes('help')
+      )) {
+        console.log('🎤 Processing final transcript for voice commands:', transcript);
+        
+        // Process the voice command
+        voiceCommandHandler.processCommand(transcript, {
+          isVisionMode: conversation.state.visionModeActive,
+          isListening: conversation.state.isListening,
+          sessionId: conversation.state.sessionId
+        }).then(processed => {
+          if (processed) {
+            console.log('🎤 Voice command processed successfully - BLOCKING LLM processing');
+            // If it's a navigation command, we should prevent it from going to the LLM
+            // The conversation system should not process navigation commands
+            return;
+          } else {
+            console.log('🎤 Not a voice command, letting conversation system handle it');
+          }
+        }).catch(error => {
+          console.error('🎤 Error processing voice command:', error);
+        });
+      }
+    }
+  }, [conversation.state.transcript, conversation.state.isActive, conversation.state.isListening, voiceCommandHandler]);
 
   return (
     <div className="home-page">
@@ -568,10 +591,10 @@ export const HomePage: React.FC = () => {
         <HeroAgent 
           message={heroMessage}
           isSpeaking={conversation.state.isSpeaking || ttsState.isSpeaking}
-          isListening={conversation.state.isListening || voiceState.isListening}
+          isListening={conversation.state.isListening}
           onActivateListening={handleActivateListening}
           onBeMyEye={handleBeMyEye}
-          transcript={conversation.state.transcript || voiceState.transcript}
+          transcript={conversation.state.transcript}
           cameraActive={cameraState.isActive}
         />
         
